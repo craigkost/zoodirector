@@ -88,8 +88,11 @@ public class ZookeeperPanel extends JPanel {
                 switch (connectionState) {
                     case LOST:
                     case SUSPENDED:
-                        close();
+                        logger.warn("connection to {} has been " + (connectionState == ConnectionState.LOST ? "lost" : "suspended") +
+                                ". Attempts will be made to reestablish the connection", connectionString);
                         break;
+                    case RECONNECTED:
+                        logger.info("connection to {} has been reestablished", connectionString);
                     default:
                         load();
                 }
@@ -438,7 +441,7 @@ public class ZookeeperPanel extends JPanel {
      */
     private void pruneNode(DefaultMutableTreeNode node) {
         int option = JOptionPane.showConfirmDialog(
-                null,
+                SwingUtilities.getRoot(this),
                 "Are you sure you want to prune this nodes and all its lonely ancestors?",
                 "Prune Node: " + getZookeeperNode(node).path,
                 JOptionPane.YES_NO_OPTION,
@@ -475,7 +478,7 @@ public class ZookeeperPanel extends JPanel {
      */
     private void trimNode(DefaultMutableTreeNode node) {
         int option = JOptionPane.showConfirmDialog(
-                null,
+                SwingUtilities.getRoot(this),
                 "Are you sure you want to delete this nodes children and all its lovely descendants?",
                 "Delete Children: " + getZookeeperNode(node).path,
                 JOptionPane.YES_NO_OPTION,
@@ -507,7 +510,7 @@ public class ZookeeperPanel extends JPanel {
 
         if (!skipConfirmation) {
             int option = JOptionPane.showConfirmDialog(
-                    null,
+                    SwingUtilities.getRoot(this),
                     "Are you sure you want to delete this node" + (node.getChildCount() > 0 ? " and all of its lovely children?" : "?"),
                     "Delete: " + getZookeeperNode(node).path,
                     JOptionPane.YES_NO_OPTION,
