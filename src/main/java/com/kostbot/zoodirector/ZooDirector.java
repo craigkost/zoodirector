@@ -2,18 +2,16 @@ package com.kostbot.zoodirector;
 
 import com.google.common.base.Charsets;
 import com.google.common.io.Resources;
-import org.apache.commons.configuration.Configuration;
 import org.apache.commons.configuration.ConfigurationException;
-import org.apache.commons.configuration.PropertiesConfiguration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.swing.*;
+import javax.swing.event.*;
 import java.awt.*;
 import java.awt.event.*;
 import java.io.File;
 import java.io.IOException;
-import java.util.*;
 
 public class ZooDirector extends JFrame {
     private static final Logger logger = LoggerFactory.getLogger(ZooDirector.class);
@@ -21,12 +19,13 @@ public class ZooDirector extends JFrame {
     public static final Font FONT_MONOSPACED = new Font("Monospaced", Font.PLAIN, 11);
     public static final String DATE_FORMAT = "yyyy-MM-dd HH:mm:ss.SSS";
 
-    private final Configuration configuration;
+    private final ZooDirectorConfig config;
     private ZookeeperPanel zookeeperPanel;
 
-    private ZooDirector(Configuration configuration) {
-        super("ZooDirector");
-        this.configuration = configuration;
+    private ZooDirector(ZooDirectorConfig config) {
+        super("zoodirector");
+
+        this.config = config;
 
         setupMenuBar();
 
@@ -40,35 +39,55 @@ public class ZooDirector extends JFrame {
             }
         });
 
-        this.setPreferredSize(new Dimension(800, 600));
+        this.setPreferredSize(new Dimension(config.getWindowWidth(), config.getWindowHeight()));
         this.pack();
     }
 
-    private class InfoDialog extends JDialog {
-        InfoDialog(Frame owner, String title, String resourcePath) {
+    private class HtmlInfoDialog extends JDialog {
+        HtmlInfoDialog(Frame owner, String title, String htmlResourcePath, int width, int height) {
             super(owner, title);
 
             String text = "";
             try {
-                text = Resources.toString(getClass().getResource(resourcePath), Charsets.UTF_8);
+                text = Resources.toString(getClass().getResource(htmlResourcePath), Charsets.UTF_8);
             } catch (IOException e) {
-                logger.error("Failed to load Help/About content");
+                logger.error("failed to load {} resource {} content", title, htmlResourcePath);
             }
 
-            JLabel aboutLabel = new JLabel(text);
-            aboutLabel.setBackground(Color.WHITE);
-            aboutLabel.setBorder(BorderFactory.createEmptyBorder(5, 5, 5, 5));
-            add(aboutLabel);
+            JEditorPane content = new JEditorPane();
+            content.setContentType("text/html");
+            content.setEditable(false);
+            content.setText(text);
+            content.addHyperlinkListener(new HyperlinkListener() {
+                @Override
+                public void hyperlinkUpdate(HyperlinkEvent e) {
+                    if (e.getEventType() == HyperlinkEvent.EventType.ACTIVATED) {
+                        try {
+                            Desktop.getDesktop().browse(e.getURL().toURI());
+                        } catch (Exception e1) {
+                            logger.error("failed opening link " + e.getURL(), e1);
+                        }
+                    }
+                }
+            });
+
+            // Ensure initial display show content from the top
+            content.setCaretPosition(0);
+            content.setBorder(BorderFactory.createEmptyBorder(5, 20, 10, 20));
+            JScrollPane scrollPane = new JScrollPane(content);
+            add(scrollPane);
+            setPreferredSize(new Dimension(width, height));
             pack();
         }
     }
 
-    private void connect(String connectionString) {
+    // TODO add connection properties
+    private void connect(String connectionString, int connectionRetryPeriod) {
         getContentPane().removeAll();
         if (zookeeperPanel != null) {
             zookeeperPanel.close();
         }
-        zookeeperPanel = new ZookeeperPanel(connectionString);
+        zookeeperPanel = new ZookeeperPanel(connectionString, connectionRetryPeriod);
         getContentPane().add(zookeeperPanel);
         pack();
     }
@@ -77,9 +96,10 @@ public class ZooDirector extends JFrame {
      * Create menu bar
      */
     private void setupMenuBar() {
-        JMenuBar menuBar = new JMenuBar();
+        final JMenuBar menuBar = new JMenuBar();
 
         JMenu connectMenu = new JMenu("Connect");
+        connectMenu.setMnemonic(KeyEvent.VK_C);
         menuBar.add(connectMenu);
 
         JMenuItem quickConnect = new JMenuItem("Quick Connect");
@@ -88,7 +108,7 @@ public class ZooDirector extends JFrame {
             @Override
             public void actionPerformed(ActionEvent e) {
                 String connectionString = (String) JOptionPane.showInputDialog(
-                        null,
+                        SwingUtilities.getRoot(menuBar),
                         "Enter zookeeper connection string",
                         "Quick Connect",
                         JOptionPane.PLAIN_MESSAGE,
@@ -97,13 +117,15 @@ public class ZooDirector extends JFrame {
                         "localhost:2181");
 
                 if (connectionString != null) {
-                    connect(connectionString);
+                    connect(connectionString, config.getConnectionRetryPeriod());
                 }
             }
         });
+        quickConnect.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_N, InputEvent.CTRL_DOWN_MASK));
+        quickConnect.setMnemonic(KeyEvent.VK_Q);
 
-        if (configuration != null) {
-            String[] connectionStrings = this.configuration.getStringArray("connection");
+        if (config != null) {
+            String[] connectionStrings = config.getConnectionStrings();
 
             if (connectionStrings != null && connectionStrings.length > 0) {
                 connectMenu.addSeparator();
@@ -112,7 +134,7 @@ public class ZooDirector extends JFrame {
                     menuItem.addActionListener(new ActionListener() {
                         @Override
                         public void actionPerformed(ActionEvent e) {
-                            connect(connectionString);
+                            connect(connectionString, config.getConnectionRetryPeriod());
                         }
                     });
                     connectMenu.add(menuItem);
@@ -120,20 +142,39 @@ public class ZooDirector extends JFrame {
             }
         }
 
-        final JDialog helpDialog = new InfoDialog(this, "About", "/about.html");
+        final JDialog aboutDialog = new HtmlInfoDialog(this, "About", "/about.html", 400, 225);
 
-        helpDialog.setLocationRelativeTo(null);
-        helpDialog.setVisible(false);
+        aboutDialog.setLocationRelativeTo(null);
+        aboutDialog.setVisible(false);
+
+        final JDialog commandHelpDialog = new HtmlInfoDialog(this, "Command Usage", "/command-usage.html", 600, 400);
+
+        commandHelpDialog.setLocationRelativeTo(null);
+        commandHelpDialog.setVisible(false);
 
         JMenu helpMenu = new JMenu("Help");
+        helpMenu.setMnemonic(KeyEvent.VK_H);
+
         JMenuItem aboutMenuItem = new JMenuItem("About");
+        aboutMenuItem.setMnemonic(KeyEvent.VK_A);
         aboutMenuItem.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
-                helpDialog.setVisible(true);
+                aboutDialog.setVisible(true);
             }
         });
         helpMenu.add(aboutMenuItem);
+
+        JMenuItem commandUsageMenuItem = new JMenuItem("Commands");
+        commandUsageMenuItem.setMnemonic(KeyEvent.VK_C);
+        commandUsageMenuItem.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                commandHelpDialog.setVisible(true);
+            }
+        });
+        helpMenu.add(commandUsageMenuItem);
+
         menuBar.add(helpMenu);
 
         this.setJMenuBar(menuBar);
@@ -154,21 +195,21 @@ public class ZooDirector extends JFrame {
             logger.warn("Unable to set Nimbus LookAndFeel : " + e.getMessage());
         }
 
-        String configurationFile = System.getenv("ZOODIRECTOR_CONFIG");
+        String configFilePath = System.getenv("ZOODIRECTOR_CONFIG");
 
-        if (configurationFile == null) {
-            configurationFile = System.getProperty("user.home") + File.separator + ".zoodirector";
+        if (configFilePath == null) {
+            configFilePath = System.getProperty("user.home") + File.separator + ".zoodirector";
         }
 
-        Configuration configuration = null;
+        ZooDirectorConfig zooDirectorConfig = null;
 
         try {
-            configuration = new PropertiesConfiguration(configurationFile);
+            zooDirectorConfig = new ZooDirectorConfig(configFilePath);
         } catch (ConfigurationException e) {
-            logger.error("Failed to load configuration file: {}", configurationFile);
+            logger.error("Failed to load configuration file: {}", configFilePath);
         }
 
-        ZooDirector zooDirector = new ZooDirector(configuration);
+        ZooDirector zooDirector = new ZooDirector(zooDirectorConfig);
         zooDirector.setLocationRelativeTo(null);
         zooDirector.setVisible(true);
     }

@@ -5,7 +5,7 @@ import com.netflix.curator.framework.CuratorFramework;
 import com.netflix.curator.framework.CuratorFrameworkFactory;
 import com.netflix.curator.framework.state.ConnectionState;
 import com.netflix.curator.framework.state.ConnectionStateListener;
-import com.netflix.curator.retry.ExponentialBackoffRetry;
+import com.netflix.curator.retry.RetryOneTime;
 import org.apache.log4j.AppenderSkeleton;
 import org.apache.log4j.Layout;
 import org.apache.log4j.PatternLayout;
@@ -74,8 +74,14 @@ public class ZookeeperPanel extends JPanel {
         return new TreePath(node.getPath());
     }
 
-    public ZookeeperPanel(String connectionString) {
-        client = CuratorFrameworkFactory.newClient(connectionString, new ExponentialBackoffRetry(1000, 3));
+    /**
+     * Panel used for editing specified zookeeper node
+     *
+     * @param connectionString      zookeeper connection string
+     * @param connectionRetryPeriod time to sleep between retries
+     */
+    public ZookeeperPanel(final String connectionString, int connectionRetryPeriod) {
+        client = CuratorFrameworkFactory.newClient(connectionString, new RetryOneTime(connectionRetryPeriod));
         client.getConnectionStateListenable().addListener(new ConnectionStateListener() {
             @Override
             public void stateChanged(CuratorFramework curatorFramework, ConnectionState connectionState) {
@@ -105,7 +111,6 @@ public class ZookeeperPanel extends JPanel {
 
         lastLogTextField = new JTextField();
         lastLogTextField.setEditable(false);
-        lastLogTextField.setEnabled(false);
         lastLogTextField.setHorizontalAlignment(JLabel.LEFT);
         lastLogTextField.setFont(ZooDirector.FONT_MONOSPACED);
         lastLogPanel.add(lastLogTextField, BorderLayout.CENTER);
@@ -129,10 +134,11 @@ public class ZookeeperPanel extends JPanel {
         logDialog.pack();
         logDialog.setLocationRelativeTo(null);
 
+        // TODO replace with better logging panel
         org.apache.log4j.Logger.getRootLogger().addAppender(new AppenderSkeleton() {
             @Override
             protected void append(LoggingEvent loggingEvent) {
-                final Layout layout = new PatternLayout("%d{yyyy-MM-dd HH:mm:ss.SSS} [%p] (%t) %c %x - %m%n");
+                final Layout layout = new PatternLayout("%-5p : %m%n");
                 String line = layout.format(loggingEvent);
                 logTextArea.append(line);
                 lastLogTextField.setText(line);
@@ -180,7 +186,29 @@ public class ZookeeperPanel extends JPanel {
         tree.getSelectionModel().setSelectionMode(TreeSelectionModel.SINGLE_TREE_SELECTION);
         tree.setBorder(BorderFactory.createEmptyBorder(2, 0, 4, 0));
 
+        tree.addKeyListener(new KeyAdapter() {
+            @Override
+            public void keyPressed(KeyEvent e) {
+                if (e.getKeyCode() == KeyEvent.VK_F5) {
+                    load();
+                }
+            }
+        });
+
+        JPanel treePane = new JPanel(new BorderLayout());
+        JButton syncButton = new JButton("Sync");
+
+        syncButton.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                load();
+            }
+        });
+
+        treePane.add(syncButton, BorderLayout.SOUTH);
+
         JScrollPane scrollPane = new JScrollPane(tree);
+        treePane.add(scrollPane, BorderLayout.CENTER);
 
         final JPopupMenu popupMenu = new JPopupMenu();
 
@@ -305,13 +333,14 @@ public class ZookeeperPanel extends JPanel {
 
         nodeEditPanel = new ZookeeperNodeEditPanel(client);
 
-        splitPane = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, scrollPane, nodeEditPanel);
+        splitPane = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, treePane, nodeEditPanel);
         splitPane.setOneTouchExpandable(true);
         splitPane.setDividerLocation(150);
 
         connectionWorker = new SwingWorker<Void, Void>() {
             @Override
             protected Void doInBackground() {
+                logger.info("connecting to cluster {}", connectionString);
                 client.start();
                 return null;
             }
@@ -354,6 +383,7 @@ public class ZookeeperPanel extends JPanel {
         ZookeeperNode childNode = ZookeeperNode.create(getZookeeperNode(parent), child);
         DefaultMutableTreeNode node = new DefaultMutableTreeNode(childNode);
         addNodeToTree(parent, node, false);
+        logger.debug("loaded {}", childNode.path);
         for (String childName : client.getChildren().forPath(childNode.path)) {
             loadChild(node, childName);
         }
@@ -432,6 +462,7 @@ public class ZookeeperPanel extends JPanel {
             } else {
                 tree.setSelectionPath(parentPath);
             }
+            tree.grabFocus();
         } catch (Exception e) {
             deleteFailed(node, e);
         }
@@ -491,6 +522,7 @@ public class ZookeeperPanel extends JPanel {
             deleteNodeInner(node, true);
             // Set selected node to parent
             tree.setSelectionPath(getTreePath(node).getParentPath());
+            tree.grabFocus();
         } catch (Exception e) {
             deleteFailed(node, e);
         }
@@ -525,6 +557,7 @@ public class ZookeeperPanel extends JPanel {
             TreePath childPath = getTreePath(node);
             tree.scrollPathToVisible(childPath);
             tree.setSelectionPath(childPath);
+            tree.grabFocus();
         }
     }
 
@@ -545,16 +578,27 @@ public class ZookeeperPanel extends JPanel {
      * @param parent parent node to add child to
      */
     private void createChildNode(DefaultMutableTreeNode parent) {
-        String value = JOptionPane.showInputDialog(null, "Enter name for new node", "Create", JOptionPane.PLAIN_MESSAGE);
-
-        if (Strings.isNullOrEmpty(value))
-            return;
-
         final Pattern BAD_PATH = Pattern.compile("(.*/\\s*/.*|/$)");
+        final String badPathMessage = "Bad path. Cannot end with / or contain and empty or whitespace segments";
 
-        if (BAD_PATH.matcher(value).find()) {
-            logger.error("create {} failed [Bad path. Cannot end with / or contain and empty or whitespace child]", value);
-            return;
+        String value = null;
+
+        while (value == null || BAD_PATH.matcher(value).find()) {
+            value = (String) JOptionPane.showInputDialog(
+                    SwingUtilities.getRoot(this),
+                    "Enter name for new node" + (value == null ? "" : "\n" + badPathMessage),
+                    "Create",
+                    JOptionPane.PLAIN_MESSAGE,
+                    null,
+                    null,
+                    value);
+
+            if (Strings.isNullOrEmpty(value))
+                return;
+
+            if (BAD_PATH.matcher(value).find()) {
+                logger.error("create {} failed [{}]", value, badPathMessage);
+            }
         }
 
         if (value.startsWith("/")) {
@@ -616,6 +660,8 @@ public class ZookeeperPanel extends JPanel {
      */
     private void load() {
         mainPanel.removeAll();
+        rootNode.removeAllChildren();
+        treeModel.reload();
         try {
             for (String childName : client.getChildren().forPath(getZookeeperNode(rootNode).path)) {
                 loadChild(rootNode, childName);
@@ -625,6 +671,10 @@ public class ZookeeperPanel extends JPanel {
         }
         mainPanel.add(splitPane, BorderLayout.CENTER);
         refresh();
+        tree.expandPath(getTreePath(rootNode));
+        tree.setSelectionRow(0);
+        tree.grabFocus();
+        logger.info("finished synchronizing node tree with zookeeper");
     }
 
     /**

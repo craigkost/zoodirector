@@ -1,0 +1,54 @@
+<html>
+<body>
+<h1>Node Tree
+    <small>(Context Menu Options)</small>
+</h1>
+The node tree context menu can be accessed by right clicking a node of interest. Certain options below are accompanied
+by hot-keys (or keyboard shortcuts, if you prefer). Please see below for more details on the context menu options.
+<h2>Modification</h2>
+<dl>
+    <dt><strong>Add</strong></dt>
+    <dd>Create the specified zookeeper path including all nodes that do not exist. Will create the node relative to the
+        selected node. Specifying a path beginning with / will create the node using an absolute path. It will create
+        all parent segments which do not presently exist in zookeeper.If the node already exists it will open in the
+        edit panel. Quick access via the <strong>Insert</strong></dd> key.
+    <dt><strong>Delete</strong></dt>
+    <dd>Deletes the selected node including all descendant nodes. Confirmation is requested. Can also be trigger by
+        the <strong>Delete</strong> key. Using <strong>Ctrl + Delete</strong> will delete the selected node and all
+        descendants without confirmation. This operation cannot be undone, use at your own risk!
+    </dd>
+    <dt><strong>Prune</strong></dt>
+    <dd>Deletes the selected node including all descendant nodes as well as all ancestor nodes which only have a single
+        child. Confirmation is requested. This operation cannot be undone, use at your own risk!
+    </dd>
+    <dt><strong>Trim</strong></dt>
+    <dd>Deletes all descendant nodes. Confirmation is requested. This operation cannot be undone, use at your own
+        risk!
+    </dd>
+</dl>
+<h2>Viewing</h2>
+<dl>
+    <dt><strong>Expand All</strong></dt>
+    <dd>Expand current node and all descendant nodes. Can also be trigger by <strong>*</strong> on the selected node.
+    </dd>
+    <dt><strong>Collapse All</strong></dt>
+    <dd>Collapse current node and all descendant nodes. Can also be trigger by <strong>/</strong> on the selected node.
+    </dd>
+</dl>
+<hr/>
+<h1>Node Edit Panel
+    <small>(Panel Options)</small>
+</h1>
+The following are the operations that can be performed within the node edit panel. This panel is populated by selecting
+a node in the node tree or when a node is created. If the node no longer exists in zookeeper the edit panel will prevent
+editing and an error will be displayed in the log panel.
+<dl>
+    <dt><strong>Reload</strong></dt>
+    <dd>Reload the node's data from zookeeper.</dd>
+    <dt><strong>Clear</strong></dt>
+    <dd>Clear the node's data from the edit panel. This does not update the data in zookeeper.</dd>
+    <dt><strong>Save</strong></dt>
+    <dd>Save the node's data to zookeeper.</dd>
+</dl>
+</body>
+</html>

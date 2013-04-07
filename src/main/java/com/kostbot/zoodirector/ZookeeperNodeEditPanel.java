@@ -1,7 +1,7 @@
 package com.kostbot.zoodirector;
 
+import com.google.common.base.Strings;
 import com.netflix.curator.framework.CuratorFramework;
-import org.apache.zookeeper.KeeperException;
 import org.apache.zookeeper.data.Stat;
 import org.joda.time.DateTime;
 import org.slf4j.Logger;
@@ -137,11 +137,12 @@ public class ZookeeperNodeEditPanel extends JPanel {
             @Override
             public void actionPerformed(ActionEvent e) {
                 try {
-                    initData = new String(client.getData().forPath(path));
+                    byte[] data = client.getData().forPath(path);
+                    initData = data == null ? "" : new String(data);
                     dataTextArea.setText(initData);
                     isDataUpdated();
                 } catch (Exception e1) {
-                    logger.error(e1.getMessage());
+                    logger.error("reload {} failed [{}]", path, e1.getMessage());
                 }
             }
         });
@@ -166,10 +167,11 @@ public class ZookeeperNodeEditPanel extends JPanel {
                 if (isDataUpdated()) {
                     try {
                         client.setData().forPath(path, dataTextArea.getText().getBytes());
+                        logger.info("saved {}", path);
                         initData = dataTextArea.getText();
                         setZookeeperPath(path);
                     } catch (Exception e1) {
-                        logger.error(e1.getMessage());
+                        logger.error("save {} failed [{}]", path, e1.getMessage());
                     }
                 }
             }
@@ -184,8 +186,10 @@ public class ZookeeperNodeEditPanel extends JPanel {
      * @return true is data has been updated, false otherwise
      */
     private boolean isDataUpdated() {
+        String currentData = dataTextArea.getText();
+        clearButton.setEnabled(!Strings.isNullOrEmpty(currentData));
         if (initData != null) {
-            if (!initData.equals(dataTextArea.getText())) {
+            if (!initData.equals(currentData)) {
                 saveButton.setEnabled(true);
                 return true;
             }
@@ -225,18 +229,18 @@ public class ZookeeperNodeEditPanel extends JPanel {
             reloadButton.setEnabled(true);
             pathTextField.setText(path);
             try {
+                byte[] data = client.getData().forPath(path);
+                initData = data == null ? "" : new String(data);
+                dataTextArea.setText(initData);
                 Stat stat = client.checkExists().forPath(path);
                 pathLabel.setText(stat.getEphemeralOwner() == 0 ? PATH : PATH_EPHEMERAL);
                 versionTextField.setText(Integer.toString(stat.getVersion()));
                 cTimeTextField.setText(new DateTime(stat.getCtime()).toString(ZooDirector.DATE_FORMAT));
                 mTimeTextField.setText(new DateTime(stat.getMtime()).toString(ZooDirector.DATE_FORMAT));
-                String data = new String(client.getData().forPath(path));
-                dataTextArea.setText(data);
-                initData = data;
             } catch (Exception e) {
                 // TODO remove node from tree on KeeperException.NoNodeException
-                logger.error("edit {} [{}]", path, e.getMessage());
-                clear();
+                logger.error("load {} failed [{}]", path, e.getMessage());
+                setZookeeperPath(null);
             }
             dataTextArea.setEditable(true);
             clearButton.setEnabled(true);
