@@ -118,6 +118,18 @@ public class ZookeeperNodeEditPanel extends JPanel {
             @Override
             public void keyReleased(KeyEvent e) {
                 isDataUpdated();
+
+                switch (e.getKeyCode()) {
+                    case KeyEvent.VK_F5:
+                        reload();
+                        break;
+                    case KeyEvent.VK_S:
+                        // Ctrl + S
+                        if (e.isControlDown()) {
+                            save();
+                        }
+                        break;
+                }
             }
         });
         this.add(dataTextArea, c);
@@ -136,14 +148,7 @@ public class ZookeeperNodeEditPanel extends JPanel {
         reloadButton.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
-                try {
-                    byte[] data = client.getData().forPath(path);
-                    initData = data == null ? "" : new String(data);
-                    dataTextArea.setText(initData);
-                    isDataUpdated();
-                } catch (Exception e1) {
-                    logger.error("reload {} failed [{}]", path, e1.getMessage());
-                }
+                reload();
             }
         });
         buttonPanel.add(reloadButton);
@@ -164,16 +169,7 @@ public class ZookeeperNodeEditPanel extends JPanel {
         saveButton.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
-                if (isDataUpdated()) {
-                    try {
-                        client.setData().forPath(path, dataTextArea.getText().getBytes());
-                        logger.info("saved {}", path);
-                        initData = dataTextArea.getText();
-                        setZookeeperPath(path);
-                    } catch (Exception e1) {
-                        logger.error("save {} failed [{}]", path, e1.getMessage());
-                    }
-                }
+                save();
             }
         });
         buttonPanel.add(saveButton);
@@ -196,6 +192,36 @@ public class ZookeeperNodeEditPanel extends JPanel {
         }
         saveButton.setEnabled(false);
         return false;
+    }
+
+    /**
+     * Reload data from zookeeper.
+     */
+    private void reload() {
+        try {
+            byte[] data = client.getData().forPath(path);
+            initData = data == null ? "" : new String(data);
+            dataTextArea.setText(initData);
+            isDataUpdated();
+        } catch (Exception e1) {
+            logger.error("reload {} failed [{}]", path, e1.getMessage());
+        }
+    }
+
+    /**
+     * If the data has been updated since last fetch data will be set in zookeeper.
+     */
+    private void save() {
+        if (isDataUpdated()) {
+            try {
+                client.setData().forPath(path, dataTextArea.getText().getBytes());
+                logger.info("saved {}", path);
+                initData = dataTextArea.getText();
+                setZookeeperPath(path);
+            } catch (Exception e1) {
+                logger.error("save {} failed [{}]", path, e1.getMessage());
+            }
+        }
     }
 
     /**

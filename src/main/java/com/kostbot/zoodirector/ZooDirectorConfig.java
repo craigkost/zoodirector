@@ -16,7 +16,11 @@ public class ZooDirectorConfig {
     private final Configuration config;
 
     public ZooDirectorConfig(String configFilePath) throws ConfigurationException {
-        config = new PropertiesConfiguration(configFilePath);
+        if (configFilePath != null) {
+            config = new PropertiesConfiguration(configFilePath);
+        } else {
+            config = null;
+        }
     }
 
     public String[] getConnectionStrings() {

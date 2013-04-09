@@ -48,7 +48,11 @@ public class ZookeeperPanel extends JPanel {
     private final JMenuItem trimNodeMenuItem;
     private final JMenuItem pruneNodeMenuItem;
 
+    private final JMenuItem addWatchMenuItem;
+    private final JMenuItem removeWatchMenuItem;
+
     private final ZookeeperNodeEditPanel nodeEditPanel;
+    private final ZookeeperWatchPanel watchPanel;
 
     private SwingWorker<Void, Void> connectionWorker;
 
@@ -271,6 +275,26 @@ public class ZookeeperPanel extends JPanel {
         });
         popupMenu.add(collapsePathMenuItem);
 
+        popupMenu.addSeparator();
+
+        addWatchMenuItem = new JMenuItem("add watch");
+        addWatchMenuItem.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                watchPanel.addWatch(getZookeeperNode(getSelectedNode()).path);
+            }
+        });
+        popupMenu.add(addWatchMenuItem);
+
+        removeWatchMenuItem = new JMenuItem("remove watch");
+        removeWatchMenuItem.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                watchPanel.removeWatch(getZookeeperNode(getSelectedNode()).path);
+            }
+        });
+        popupMenu.add(removeWatchMenuItem);
+
         // Context menu for selected tree node
         MouseListener ml = new MouseAdapter() {
             @Override
@@ -283,6 +307,11 @@ public class ZookeeperPanel extends JPanel {
                     deleteNodeMenuItem.setEnabled(!selectedNode.isRoot());
                     pruneNodeMenuItem.setEnabled(!selectedNode.isRoot());
                     trimNodeMenuItem.setEnabled(selectedNode.getChildCount() > 0);
+
+                    boolean hasWatch = watchPanel.hasWatch(getZookeeperNode(selectedNode).path);
+                    addWatchMenuItem.setEnabled(!hasWatch);
+                    removeWatchMenuItem.setEnabled(hasWatch);
+
                     popupMenu.show(e.getComponent(), e.getX(), e.getY());
                 }
             }
@@ -330,13 +359,24 @@ public class ZookeeperPanel extends JPanel {
                     case KeyEvent.VK_DIVIDE:
                         collapseAll(node);
                         break;
+                    case KeyEvent.VK_W:
+                        addWatch(getSelectedNode(), e.isControlDown());
+                        break;
+                    case KeyEvent.VK_R:
+                        removeWatch(getSelectedNode(), e.isControlDown());
+                        break;
                 }
             }
         });
 
+        JTabbedPane tabbedPane = new JTabbedPane();
         nodeEditPanel = new ZookeeperNodeEditPanel(client);
+        tabbedPane.add(nodeEditPanel, "View/Edit");
 
-        splitPane = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, treePane, nodeEditPanel);
+        watchPanel = new ZookeeperWatchPanel(client);
+        tabbedPane.add(watchPanel, "Watches");
+
+        splitPane = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, treePane, tabbedPane);
         splitPane.setOneTouchExpandable(true);
         splitPane.setDividerLocation(150);
 
@@ -678,6 +718,44 @@ public class ZookeeperPanel extends JPanel {
         tree.setSelectionRow(0);
         tree.grabFocus();
         logger.info("finished synchronizing node tree with zookeeper");
+    }
+
+    /**
+     * Add watch for the given node's zookeeper path.
+     *
+     * @param node      node to add watch to
+     * @param recursive if set watches for all descendant nodes will be created (if they do not already exist)
+     */
+    private void addWatch(DefaultMutableTreeNode node, boolean recursive) {
+        ZookeeperNode zookeeperNode = getZookeeperNode(node);
+        if (zookeeperNode != null) {
+            watchPanel.addWatch(zookeeperNode.path);
+            if (recursive) {
+                Enumeration<DefaultMutableTreeNode> childNodes = node.breadthFirstEnumeration();
+                while (childNodes.hasMoreElements()) {
+                    addWatch(childNodes.nextElement(), false);
+                }
+            }
+        }
+    }
+
+    /**
+     * Remove watch for the given node's zookeeper path.
+     *
+     * @param node      node to remove watch from
+     * @param recursive if true watches for all descendant nodes will be removed (if they exist)
+     */
+    private void removeWatch(DefaultMutableTreeNode node, boolean recursive) {
+        ZookeeperNode zookeeperNode = getZookeeperNode(node);
+        if (zookeeperNode != null) {
+            watchPanel.removeWatch(zookeeperNode.path);
+            if (recursive) {
+                Enumeration<DefaultMutableTreeNode> childNodes = node.breadthFirstEnumeration();
+                while (childNodes.hasMoreElements()) {
+                    removeWatch(childNodes.nextElement(), false);
+                }
+            }
+        }
     }
 
     /**
