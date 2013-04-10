@@ -3,7 +3,7 @@ zoodirector
 
 A simple java ui for viewing and modifying zookeeper cluster nodes.
 
-The UI is composed of two main panels. The first is for viewing/editing the node tree, the second for viewing/editing the selected node data and information.
+The UI is composed of 3 main view. The first is for viewing/editing the node tree, the second for viewing/editing the selected node data and information, and the last for managing node data watches.
 
 Configuration
 -------------

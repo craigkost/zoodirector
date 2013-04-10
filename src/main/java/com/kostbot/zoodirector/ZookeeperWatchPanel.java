@@ -100,6 +100,35 @@ public class ZookeeperWatchPanel extends JPanel {
         watchTable.setFont(ZooDirector.FONT_MONOSPACED);
         watchTable.setHorizontalScrollEnabled(true);
         add(new JScrollPane(watchTable), c);
+
+        final JPopupMenu tableMenu = new JPopupMenu();
+
+        JMenuItem removeWatchMenuItem = new JMenuItem("Remove");
+        removeWatchMenuItem.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                if (watchTable.getSelectedRowCount() > 0) {
+                    int[] rows = watchTable.getSelectedRows();
+                    for (int i = rows.length - 1; i >= 0; --i) {
+                        removeWatch(rows[i]);
+                    }
+                }
+            }
+        });
+
+        tableMenu.add(removeWatchMenuItem);
+
+        watchTable.addMouseListener(new MouseAdapter() {
+            @Override
+            public void mouseClicked(MouseEvent e) {
+                if (e.getButton() == MouseEvent.BUTTON3) {
+                    // Show context menu if clicking selected row
+                    if (watchTable.isRowSelected(watchTable.rowAtPoint(e.getPoint()))) {
+                        tableMenu.show(watchTable, e.getX(), e.getY());
+                    }
+                }
+            }
+        });
     }
 
     private void setData(int row, Stat stat, byte[] data) {
@@ -132,10 +161,10 @@ public class ZookeeperWatchPanel extends JPanel {
             }
 
             if (deleted) {
-                logger.info("node deleted {}", path);
+                logger.info("[watch] {} deleted", path);
                 setData(row, null, null);
             } else {
-                logger.info("node updated {}", path);
+                logger.info("[watch] {} updated", path);
                 try {
                     Stat stat = client.checkExists().usingWatcher(watcher).forPath(path);
                     byte[] data = null;
@@ -145,14 +174,14 @@ public class ZookeeperWatchPanel extends JPanel {
                     }
                     setData(row, stat, data);
                 } catch (Exception e) {
-                    logger.error("failed to updated {} data [{}]", path, e.getMessage());
+                    logger.error("[watch] {} update failed [{}]", path, e.getMessage());
                 }
             }
         }
     }
 
     private void addRow(String path, Stat stat, byte[] data) {
-        logger.info("added watch for {}", path);
+        logger.info("{} watch added", path);
         tableModel.addRow(new Object[]{
                 path,
                 stat == null ? null : (stat.getEphemeralOwner() != 0),
@@ -164,7 +193,18 @@ public class ZookeeperWatchPanel extends JPanel {
         watchTable.packAll();
     }
 
-    synchronized public void removeWatch(String path) {
+    synchronized private void remoteWatch(String path, int row) {
+        logger.info("{} watch removed", path);
+        tableModel.removeRow(row);
+        watchMap.remove(path);
+    }
+
+    private void removeWatch(int row) {
+        String path = (String) tableModel.getValueAt(row, 0);
+        remoteWatch(path, row);
+    }
+
+    public void removeWatch(String path) {
         if (watchMap.contains(path)) {
             int row = getRow(path);
 
@@ -172,9 +212,7 @@ public class ZookeeperWatchPanel extends JPanel {
                 return;
             }
 
-            logger.info("removed watch for {}", path);
-            tableModel.removeRow(row);
-            watchMap.remove(path);
+            remoteWatch(path, row);
         }
     }
 

@@ -81,7 +81,12 @@ public class ZooDirector extends JFrame {
         }
     }
 
-    // TODO add connection properties
+    /**
+     * Establish a new connection to a zookeeper cluster.
+     *
+     * @param connectionString
+     * @param connectionRetryPeriod
+     */
     private void connect(String connectionString, int connectionRetryPeriod) {
         getContentPane().removeAll();
         if (zookeeperPanel != null) {
@@ -89,7 +94,6 @@ public class ZooDirector extends JFrame {
         }
         zookeeperPanel = new ZookeeperPanel(connectionString, connectionRetryPeriod);
         getContentPane().add(zookeeperPanel);
-        pack();
     }
 
     /**

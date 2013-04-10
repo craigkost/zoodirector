@@ -112,7 +112,7 @@ public class ZookeeperNodeEditPanel extends JPanel {
         c.weighty = 1;
         c.fill = GridBagConstraints.BOTH;
         c.insets.top = 0;
-        dataTextArea = new JTextArea(25, 50);
+        dataTextArea = new JTextArea(10, 50);
         dataTextArea.setFont(ZooDirector.FONT_MONOSPACED);
         dataTextArea.addKeyListener(new KeyAdapter() {
             @Override
@@ -132,7 +132,7 @@ public class ZookeeperNodeEditPanel extends JPanel {
                 }
             }
         });
-        this.add(dataTextArea, c);
+        this.add(new JScrollPane(dataTextArea), c);
 
         c.fill = GridBagConstraints.NONE;
         c.weighty = 0;

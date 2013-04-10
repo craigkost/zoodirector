@@ -562,9 +562,10 @@ public class ZookeeperPanel extends JPanel {
         }
 
         try {
+            TreePath parentPath = getTreePath(node).getParentPath();
             deleteNodeInner(node, true);
             // Set selected node to parent
-            tree.setSelectionPath(getTreePath(node).getParentPath());
+            tree.setSelectionPath(parentPath);
             tree.grabFocus();
         } catch (Exception e) {
             deleteFailed(node, e);
