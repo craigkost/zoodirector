@@ -1,6 +1,5 @@
 package com.kostbot.zoodirector;
 
-import org.apache.commons.configuration.Configuration;
 import org.apache.commons.configuration.ConfigurationException;
 import org.apache.commons.configuration.ConversionException;
 import org.apache.commons.configuration.PropertiesConfiguration;
@@ -13,24 +12,24 @@ import org.slf4j.LoggerFactory;
 public class ZooDirectorConfig {
     private static final Logger logger = LoggerFactory.getLogger(ZooDirectorConfig.class);
 
-    private final Configuration config;
+    private PropertiesConfiguration config;
 
-    public ZooDirectorConfig(String configFilePath) throws ConfigurationException {
-        if (configFilePath != null) {
+    public ZooDirectorConfig(String configFilePath) {
+        try {
             config = new PropertiesConfiguration(configFilePath);
-        } else {
-            config = null;
+        } catch (ConfigurationException e) {
+            logger.error("failed to load configuration");
+            config = new PropertiesConfiguration();
         }
     }
 
     public String[] getConnectionStrings() {
         String[] connectionStrings = null;
-        if (config != null) {
-            try {
-                connectionStrings = config.getStringArray("connection");
-            } catch (ConversionException e) {
-                logger.error("failed to load connection list [{}]", e.getMessage());
-            }
+
+        try {
+            connectionStrings = config.getStringArray("connection");
+        } catch (ConversionException e) {
+            logger.error("failed to load connection list [{}]", e.getMessage());
         }
 
         return connectionStrings;

@@ -2,7 +2,6 @@ package com.kostbot.zoodirector;
 
 import com.google.common.base.Charsets;
 import com.google.common.io.Resources;
-import org.apache.commons.configuration.ConfigurationException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -128,21 +127,19 @@ public class ZooDirector extends JFrame {
         quickConnect.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_N, InputEvent.CTRL_DOWN_MASK));
         quickConnect.setMnemonic(KeyEvent.VK_Q);
 
-        if (config != null) {
-            String[] connectionStrings = config.getConnectionStrings();
+        String[] connectionStrings = config.getConnectionStrings();
 
-            if (connectionStrings != null && connectionStrings.length > 0) {
-                connectMenu.addSeparator();
-                for (final String connectionString : connectionStrings) {
-                    JMenuItem menuItem = new JMenuItem(connectionString);
-                    menuItem.addActionListener(new ActionListener() {
-                        @Override
-                        public void actionPerformed(ActionEvent e) {
-                            connect(connectionString, config.getConnectionRetryPeriod());
-                        }
-                    });
-                    connectMenu.add(menuItem);
-                }
+        if (connectionStrings != null && connectionStrings.length > 0) {
+            connectMenu.addSeparator();
+            for (final String connectionString : connectionStrings) {
+                JMenuItem menuItem = new JMenuItem(connectionString);
+                menuItem.addActionListener(new ActionListener() {
+                    @Override
+                    public void actionPerformed(ActionEvent e) {
+                        connect(connectionString, config.getConnectionRetryPeriod());
+                    }
+                });
+                connectMenu.add(menuItem);
             }
         }
 
@@ -205,15 +202,7 @@ public class ZooDirector extends JFrame {
             configFilePath = System.getProperty("user.home") + File.separator + ".zoodirector";
         }
 
-        ZooDirectorConfig zooDirectorConfig = null;
-
-        try {
-            zooDirectorConfig = new ZooDirectorConfig(configFilePath);
-        } catch (ConfigurationException e) {
-            logger.error("Failed to load configuration file: {}", configFilePath);
-        }
-
-        ZooDirector zooDirector = new ZooDirector(zooDirectorConfig);
+        ZooDirector zooDirector = new ZooDirector(new ZooDirectorConfig(configFilePath));
         zooDirector.setLocationRelativeTo(null);
         zooDirector.setVisible(true);
     }
