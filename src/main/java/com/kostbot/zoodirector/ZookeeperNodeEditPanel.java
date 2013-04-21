@@ -1,7 +1,6 @@
 package com.kostbot.zoodirector;
 
 import com.google.common.base.Strings;
-import com.netflix.curator.framework.CuratorFramework;
 import org.apache.zookeeper.data.Stat;
 import org.joda.time.DateTime;
 import org.slf4j.Logger;
@@ -22,7 +21,7 @@ public class ZookeeperNodeEditPanel extends JPanel {
     private static final String PATH = "Path";
     private static final String PATH_EPHEMERAL = "Path (Ephemeral)";
 
-    private final CuratorFramework client;
+    private final ZookeeperSync zookeeperSync;
 
     private String path;
 
@@ -39,10 +38,10 @@ public class ZookeeperNodeEditPanel extends JPanel {
 
     private String initData; // Used for detecting data edit changes
 
-    ZookeeperNodeEditPanel(final CuratorFramework client) {
+    ZookeeperNodeEditPanel(final ZookeeperSync zookeeperSync) {
         super();
 
-        this.client = client;
+        this.zookeeperSync = zookeeperSync;
 
         this.setLayout(new GridBagLayout());
 
@@ -199,7 +198,7 @@ public class ZookeeperNodeEditPanel extends JPanel {
      */
     private void reload() {
         try {
-            byte[] data = client.getData().forPath(path);
+            byte[] data = zookeeperSync.getData(path);
             initData = data == null ? "" : new String(data);
             dataTextArea.setText(initData);
             isDataUpdated();
@@ -214,7 +213,7 @@ public class ZookeeperNodeEditPanel extends JPanel {
     private void save() {
         if (isDataUpdated()) {
             try {
-                client.setData().forPath(path, dataTextArea.getText().getBytes());
+                zookeeperSync.setData(path, dataTextArea.getText().getBytes());
                 logger.info("saved {}", path);
                 initData = dataTextArea.getText();
                 setZookeeperPath(path);
@@ -255,16 +254,15 @@ public class ZookeeperNodeEditPanel extends JPanel {
             reloadButton.setEnabled(true);
             pathTextField.setText(path);
             try {
-                byte[] data = client.getData().forPath(path);
+                byte[] data = zookeeperSync.getData(path);
                 initData = data == null ? "" : new String(data);
                 dataTextArea.setText(initData);
-                Stat stat = client.checkExists().forPath(path);
+                Stat stat = zookeeperSync.getStat(path);
                 pathLabel.setText(stat.getEphemeralOwner() == 0 ? PATH : PATH_EPHEMERAL);
                 versionTextField.setText(Integer.toString(stat.getVersion()));
                 cTimeTextField.setText(new DateTime(stat.getCtime()).toString(ZooDirector.DATE_FORMAT));
                 mTimeTextField.setText(new DateTime(stat.getMtime()).toString(ZooDirector.DATE_FORMAT));
             } catch (Exception e) {
-                // TODO remove node from tree on KeeperException.NoNodeException
                 logger.error("load {} failed [{}]", path, e.getMessage());
                 setZookeeperPath(null);
             }
@@ -273,5 +271,16 @@ public class ZookeeperNodeEditPanel extends JPanel {
             saveButton.setEnabled(true);
         }
         isDataUpdated();
+    }
+
+    /**
+     * Disable editing of zookeeper node.
+     */
+    public void setOffline() {
+        dataTextArea.setEditable(false);
+        dataTextArea.setEnabled(false);
+        clearButton.setEnabled(false);
+        saveButton.setEnabled(false);
+        reloadButton.setEnabled(false);
     }
 }

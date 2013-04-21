@@ -10,7 +10,6 @@ import org.apache.log4j.AppenderSkeleton;
 import org.apache.log4j.Layout;
 import org.apache.log4j.PatternLayout;
 import org.apache.log4j.spi.LoggingEvent;
-import org.apache.zookeeper.KeeperException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -20,28 +19,33 @@ import javax.swing.tree.*;
 import java.awt.*;
 import java.awt.event.*;
 import java.util.Enumeration;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.regex.Pattern;
 
-public class ZookeeperPanel extends JPanel {
+public final class ZookeeperPanel extends JPanel {
     private static final Logger logger = LoggerFactory.getLogger(ZookeeperPanel.class);
 
+    private final ZookeeperSync zookeeperSync;
     private final CuratorFramework client;
+    private final String connectionString;
+
+    private volatile boolean offline; // prevent operations if offline.
+
+    private final Set<String> createdPaths;
 
     // Main UI
-    private JPanel mainPanel;
+    private final JPanel mainPanel;
 
     private final JDialog logDialog;
     private final JTextArea logTextArea;
     private final JTextField lastLogTextField;
 
-    // Loading UI
-    private JPanel loadingPanel;
-
     // Zookeeper View UI
     private final JSplitPane splitPane;
-    private final DefaultTreeModel treeModel;
-    private final JTree tree;
-    private final DefaultMutableTreeNode rootNode;
+    protected final DefaultTreeModel treeModel;
+    protected final JTree tree;
+    protected final DefaultMutableTreeNode rootNode;
 
     private final JMenuItem addNodeMenuItem;
     private final JMenuItem deleteNodeMenuItem;
@@ -54,18 +58,18 @@ public class ZookeeperPanel extends JPanel {
     private final ZookeeperNodeEditPanel nodeEditPanel;
     private final ZookeeperWatchPanel watchPanel;
 
-    private SwingWorker<Void, Void> connectionWorker;
+    private final SwingWorker<Void, Void> connectionWorker;
 
     /**
-     * Helper method for extracting ZookeeperNode from tree node's user object.
+     * Helper method for extracting the Zookeeper path from tree node's user object.
      *
      * @param node tree node to extract ZookeeperNode instance from
-     * @return ZookeeperNode instance of tree node
+     * @return zookeeper path of node
      */
-    private static ZookeeperNode getZookeeperNode(DefaultMutableTreeNode node) {
+    protected static String getZookeeperNodePath(DefaultMutableTreeNode node) {
         if (node == null)
             return null;
-        return (ZookeeperNode) node.getUserObject();
+        return ((ZookeeperNode) node.getUserObject()).path;
     }
 
     /**
@@ -85,6 +89,8 @@ public class ZookeeperPanel extends JPanel {
      * @param connectionRetryPeriod time to sleep between retries
      */
     public ZookeeperPanel(final String connectionString, int connectionRetryPeriod) {
+        this.connectionString = connectionString;
+
         client = CuratorFrameworkFactory.newClient(connectionString, new RetryOneTime(connectionRetryPeriod));
         client.getConnectionStateListenable().addListener(new ConnectionStateListener() {
             @Override
@@ -92,13 +98,38 @@ public class ZookeeperPanel extends JPanel {
                 switch (connectionState) {
                     case LOST:
                     case SUSPENDED:
+                        offline = true;
+                        nodeEditPanel.setOffline();
                         logger.warn("connection to {} has been " + (connectionState == ConnectionState.LOST ? "lost" : "suspended") +
                                 ". Attempts will be made to reestablish the connection", connectionString);
                         break;
                     case RECONNECTED:
+                        offline = false;
                         logger.info("connection to {} has been reestablished", connectionString);
                     default:
                         load();
+                        tree.expandPath(getTreePath(rootNode));
+                        tree.setSelectionRow(0);
+                }
+            }
+        });
+
+        // Responsible for managing all tree additions and removals.
+        zookeeperSync = new ZookeeperSync(client);
+        zookeeperSync.addListener(new ZookeeperSync.Listener() {
+            @Override
+            public void process(ZookeeperSync.Event e) {
+                boolean created;
+                synchronized (createdPaths) {
+                    created = createdPaths.remove(e.path);
+                }
+                switch (e.type) {
+                    case add:
+                        addNodeToTree(e.path, created);
+                        break;
+                    case delete:
+                        removeNodeFromTree(e.path);
+                        break;
                 }
             }
         });
@@ -139,7 +170,7 @@ public class ZookeeperPanel extends JPanel {
         JScrollPane logScrollPane = new JScrollPane(logTextArea);
         logDialog.add(logScrollPane);
         logDialog.pack();
-        logDialog.setLocationRelativeTo(null);
+        logDialog.setLocationRelativeTo(SwingUtilities.getRoot(this));
 
         // TODO replace with better logging panel
         org.apache.log4j.Logger.getRootLogger().addAppender(new AppenderSkeleton() {
@@ -161,28 +192,6 @@ public class ZookeeperPanel extends JPanel {
             }
         });
 
-        // Loading UI Setup
-
-        loadingPanel = new JPanel(new GridBagLayout());
-        GridBagConstraints c = new GridBagConstraints();
-
-        c.gridwidth = 1;
-        c.insets.top = c.insets.bottom = 5;
-        c.gridy = 0;
-        loadingPanel.add(new JLabel("Establishing connection to zookeeper @ " + connectionString), c);
-
-        c.gridy += 1;
-        JButton cancelConnectionButton = new JButton("Cancel");
-        cancelConnectionButton.addActionListener(new ActionListener() {
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                connectionWorker.cancel(true);
-                close();
-            }
-        });
-        loadingPanel.add(cancelConnectionButton, c);
-        mainPanel.add(loadingPanel, BorderLayout.CENTER);
-
         // Zookeeper View UI Setup
 
         rootNode = new DefaultMutableTreeNode(ZookeeperNode.root);
@@ -193,26 +202,7 @@ public class ZookeeperPanel extends JPanel {
         tree.getSelectionModel().setSelectionMode(TreeSelectionModel.SINGLE_TREE_SELECTION);
         tree.setBorder(BorderFactory.createEmptyBorder(2, 0, 4, 0));
 
-        tree.addKeyListener(new KeyAdapter() {
-            @Override
-            public void keyPressed(KeyEvent e) {
-                if (e.getKeyCode() == KeyEvent.VK_F5) {
-                    load();
-                }
-            }
-        });
-
         JPanel treePane = new JPanel(new BorderLayout());
-        JButton syncButton = new JButton("Sync");
-
-        syncButton.addActionListener(new ActionListener() {
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                load();
-            }
-        });
-
-        treePane.add(syncButton, BorderLayout.SOUTH);
 
         JScrollPane scrollPane = new JScrollPane(tree);
         treePane.add(scrollPane, BorderLayout.CENTER);
@@ -223,7 +213,7 @@ public class ZookeeperPanel extends JPanel {
         addNodeMenuItem.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
-                createChildNode(getSelectedNode());
+                createNode(getSelectedNode());
             }
         });
         popupMenu.add(addNodeMenuItem);
@@ -281,7 +271,7 @@ public class ZookeeperPanel extends JPanel {
         addWatchMenuItem.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
-                watchPanel.addWatch(getZookeeperNode(getSelectedNode()).path);
+                watchPanel.addWatch(getZookeeperNodePath(getSelectedNode()));
             }
         });
         popupMenu.add(addWatchMenuItem);
@@ -290,7 +280,7 @@ public class ZookeeperPanel extends JPanel {
         removeWatchMenuItem.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
-                watchPanel.removeWatch(getZookeeperNode(getSelectedNode()).path);
+                watchPanel.removeWatch(getZookeeperNodePath(getSelectedNode()));
             }
         });
         popupMenu.add(removeWatchMenuItem);
@@ -304,13 +294,14 @@ public class ZookeeperPanel extends JPanel {
                 tree.setSelectionRow(row);
                 if (SwingUtilities.isRightMouseButton(e)) {
                     DefaultMutableTreeNode selectedNode = getSelectedNode();
-                    deleteNodeMenuItem.setEnabled(!selectedNode.isRoot());
-                    pruneNodeMenuItem.setEnabled(!selectedNode.isRoot());
-                    trimNodeMenuItem.setEnabled(selectedNode.getChildCount() > 0);
+                    addNodeMenuItem.setEnabled(!offline);
+                    deleteNodeMenuItem.setEnabled(!offline && !selectedNode.isRoot());
+                    pruneNodeMenuItem.setEnabled(!offline && !selectedNode.isRoot());
+                    trimNodeMenuItem.setEnabled(!offline && selectedNode.getChildCount() > 0);
 
-                    boolean hasWatch = watchPanel.hasWatch(getZookeeperNode(selectedNode).path);
-                    addWatchMenuItem.setEnabled(!hasWatch);
-                    removeWatchMenuItem.setEnabled(hasWatch);
+                    boolean hasWatch = watchPanel.hasWatch(getZookeeperNodePath(selectedNode));
+                    addWatchMenuItem.setEnabled(!offline && !hasWatch);
+                    removeWatchMenuItem.setEnabled(!offline && hasWatch);
 
                     popupMenu.show(e.getComponent(), e.getX(), e.getY());
                 }
@@ -321,11 +312,9 @@ public class ZookeeperPanel extends JPanel {
         tree.addTreeSelectionListener(new TreeSelectionListener() {
             @Override
             public void valueChanged(TreeSelectionEvent event) {
-                ZookeeperNode zookeeperNode = getZookeeperNode(getSelectedNode());
-                if (zookeeperNode == null)
-                    nodeEditPanel.setZookeeperPath(null);
-                else
-                    nodeEditPanel.setZookeeperPath(zookeeperNode.path);
+                if (!offline) {
+                    nodeEditPanel.setZookeeperPath(getZookeeperNodePath(getSelectedNode()));
+                }
             }
         });
 
@@ -351,7 +340,7 @@ public class ZookeeperPanel extends JPanel {
                         deleteNode(node, e.isControlDown());
                         break;
                     case KeyEvent.VK_INSERT:
-                        createChildNode(node);
+                        createNode(node);
                         break;
                     case KeyEvent.VK_MULTIPLY:
                         expandAll(node);
@@ -360,25 +349,33 @@ public class ZookeeperPanel extends JPanel {
                         collapseAll(node);
                         break;
                     case KeyEvent.VK_W:
-                        addWatch(getSelectedNode(), e.isControlDown());
+                        // Ctrl + (Shift) + W
+                        if (e.isControlDown()) {
+                            addWatch(getSelectedNode(), e.isShiftDown());
+                        }
                         break;
                     case KeyEvent.VK_R:
-                        removeWatch(getSelectedNode(), e.isControlDown());
+                        // Ctrl + (Shift) + R
+                        if (e.isControlDown()) {
+                            removeWatch(getSelectedNode(), e.isShiftDown());
+                        }
                         break;
                 }
             }
         });
 
         JTabbedPane tabbedPane = new JTabbedPane();
-        nodeEditPanel = new ZookeeperNodeEditPanel(client);
+        nodeEditPanel = new ZookeeperNodeEditPanel(zookeeperSync);
         tabbedPane.add(nodeEditPanel, "View/Edit");
 
-        watchPanel = new ZookeeperWatchPanel(client);
+        watchPanel = new ZookeeperWatchPanel(zookeeperSync);
         tabbedPane.add(watchPanel, "Watches");
 
         splitPane = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, treePane, tabbedPane);
         splitPane.setOneTouchExpandable(true);
-        splitPane.setDividerLocation(150);
+        splitPane.setDividerLocation(200);
+
+        createdPaths = new HashSet<String>();
 
         connectionWorker = new SwingWorker<Void, Void>() {
             @Override
@@ -397,8 +394,6 @@ public class ZookeeperPanel extends JPanel {
                 }
             }
         };
-
-        connectionWorker.execute();
     }
 
     /**
@@ -416,61 +411,92 @@ public class ZookeeperPanel extends JPanel {
     }
 
     /**
-     * Helper method for loading children from zookeeper into the tree.
+     * Add the given path as a node on the tree in sorted order.
      *
-     * @param parent parent of child to be added to the tree
-     * @param child  child to be added to the tree
-     * @throws Exception
+     * @param path
      */
-    private void loadChild(DefaultMutableTreeNode parent, String child) throws Exception {
-        ZookeeperNode childNode = ZookeeperNode.create(getZookeeperNode(parent), child);
-        DefaultMutableTreeNode node = new DefaultMutableTreeNode(childNode);
-        addNodeToTree(parent, node, false);
-        logger.debug("loaded {}", childNode.path);
-        for (String childName : client.getChildren().forPath(childNode.path)) {
-            loadChild(node, childName);
+    protected void addNodeToTree(String path, boolean select) {
+
+        // Ignore root
+        if ("/".equals(path)) {
+            return;
+        }
+
+        DefaultMutableTreeNode parent = rootNode;
+
+        String[] segments = path.substring(1).split("/");
+
+        // Ensure a node exists for all segments of the path.
+        for (int i = 0; i < segments.length; ++i) {
+
+            String segment = segments[i];
+
+            DefaultMutableTreeNode node = null;
+
+            int insertAt = 0;
+
+            // Add to tree in sorted order.
+            for (int j = 0; j < parent.getChildCount(); ++j) {
+                DefaultMutableTreeNode child = (DefaultMutableTreeNode) parent.getChildAt(j);
+                if (segment.compareTo(child.toString()) > 0) {
+                    insertAt = j + 1;
+                } else if (segment.equals(child.toString())) {
+                    node = (DefaultMutableTreeNode) parent.getChildAt(j);
+                    break;
+                }
+            }
+
+            if (node == null) {
+                node = new DefaultMutableTreeNode(ZookeeperNode.create(getZookeeperNodePath(parent), segment));
+                treeModel.insertNodeInto(node, parent, insertAt);
+            }
+
+            parent = node;
+        }
+
+        if (select) {
+            TreePath treePath = getTreePath(parent);
+            tree.setSelectionPath(treePath);
+            tree.scrollPathToVisible(treePath);
         }
     }
 
     /**
-     * Helper method for consistent logging of delete failures.
+     * Remove the given path from the tree if it exists.
      *
-     * @param node node which failed to be deleted
-     * @param e    exception caught
+     * @param path
      */
-    private void deleteFailed(DefaultMutableTreeNode node, Exception e) {
-        logger.error("delete {} failed [{}]", getZookeeperNode(node).path, e.getMessage());
-    }
+    protected void removeNodeFromTree(String path) {
 
-    /**
-     * Delete node and optionally children from zookeeper and remove it/them from the tree.
-     *
-     * @param node      node to be deleted
-     * @param recursive if true recursively delete all sub nodes
-     * @throws Exception if an error occurred deleting node or it's children
-     */
-    private void deleteNodeInner(DefaultMutableTreeNode node, boolean recursive) throws Exception {
+        DefaultMutableTreeNode parent = rootNode;
 
-        if (recursive) {
-            // Delete only visible nodes (there may be nodes in zookeeper that still exist)
-            for (int i = node.getChildCount() - 1; i >= 0; --i) {
-                DefaultMutableTreeNode childNode = (DefaultMutableTreeNode) node.getChildAt(i);
-                try {
-                    deleteNodeInner(childNode, true);
-                } catch (KeeperException.BadArgumentsException e) {
-                    deleteFailed(childNode, e);
+        String[] segments = path.substring(1).split("/");
+
+        boolean foundParent = true;
+
+        for (int i = 0; foundParent && i < segments.length; ++i) {
+
+            String segment = segments[i];
+
+            foundParent = false;
+
+            for (int j = 0; j < parent.getChildCount(); ++j) {
+                DefaultMutableTreeNode child = (DefaultMutableTreeNode) parent.getChildAt(j);
+                if (segment.equals(child.toString())) {
+
+                    // If we have found the path, remove it.
+                    if (i == segments.length - 1) {
+                        treeModel.removeNodeFromParent(child);
+                        return;
+                    }
+
+                    // Keep searching down path.
+                    foundParent = true;
+                    parent = child;
+                    break;
                 }
             }
         }
-
-        String path = getZookeeperNode(node).path;
-        if (client.checkExists().forPath(path) != null) {
-            client.delete().forPath(path);
-            logger.info("deleted {}", path);
-        } else {
-            logger.warn("deleted {} (did not exist in zookeeper)", path);
-        }
-        treeModel.removeNodeFromParent(node);
     }
 
     /**
@@ -480,10 +506,12 @@ public class ZookeeperPanel extends JPanel {
      * @throws Exception
      */
     private void pruneNode(DefaultMutableTreeNode node) {
+        String path = getZookeeperNodePath(node);
+
         int option = JOptionPane.showConfirmDialog(
                 SwingUtilities.getRoot(this),
                 "Are you sure you want to prune this nodes and all its lonely ancestors?",
-                "Prune Node: " + getZookeeperNode(node).path,
+                "Prune Node: " + path,
                 JOptionPane.YES_NO_OPTION,
                 JOptionPane.QUESTION_MESSAGE);
 
@@ -491,23 +519,10 @@ public class ZookeeperPanel extends JPanel {
             return;
         }
 
-        // Determine which parents will be included in the prune
-        while (node.getParent() != rootNode && node.getParent().getChildCount() == 1) {
-            node = (DefaultMutableTreeNode) node.getParent();
-        }
-
         try {
-            deleteNodeInner(node, true);
-            // Set selected node to parent
-            TreePath parentPath = getTreePath(node).getParentPath();
-            if (parentPath == null) {
-                tree.setSelectionPath(getTreePath(rootNode));
-            } else {
-                tree.setSelectionPath(parentPath);
-            }
-            tree.grabFocus();
+            zookeeperSync.prune(path);
         } catch (Exception e) {
-            deleteFailed(node, e);
+            logger.error("prune {} failed [{}]", path, e);
         }
     }
 
@@ -517,10 +532,12 @@ public class ZookeeperPanel extends JPanel {
      * @param node node to have children delete for
      */
     private void trimNode(DefaultMutableTreeNode node) {
+        String path = getZookeeperNodePath(node);
+
         int option = JOptionPane.showConfirmDialog(
                 SwingUtilities.getRoot(this),
                 "Are you sure you want to delete this nodes children and all its lovely descendants?",
-                "Delete Children: " + getZookeeperNode(node).path,
+                "Delete Children: " + path,
                 JOptionPane.YES_NO_OPTION,
                 JOptionPane.QUESTION_MESSAGE);
 
@@ -528,13 +545,10 @@ public class ZookeeperPanel extends JPanel {
             return;
         }
 
-        for (int i = node.getChildCount() - 1; i >= 0; --i) {
-            DefaultMutableTreeNode childNode = (DefaultMutableTreeNode) node.getChildAt(i);
-            try {
-                deleteNodeInner(childNode, true);
-            } catch (Exception e) {
-                deleteFailed(childNode, e);
-            }
+        try {
+            zookeeperSync.trim(path);
+        } catch (Exception e) {
+            logger.error("trim {} failed [{}]", path, e);
         }
     }
 
@@ -548,11 +562,13 @@ public class ZookeeperPanel extends JPanel {
         if (node.isRoot())
             return;
 
+        String path = getZookeeperNodePath(node);
+
         if (!skipConfirmation) {
             int option = JOptionPane.showConfirmDialog(
                     SwingUtilities.getRoot(this),
                     "Are you sure you want to delete this node" + (node.getChildCount() > 0 ? " and all of its lovely children?" : "?"),
-                    "Delete: " + getZookeeperNode(node).path,
+                    "Delete: " + node,
                     JOptionPane.YES_NO_OPTION,
                     JOptionPane.QUESTION_MESSAGE);
 
@@ -562,58 +578,10 @@ public class ZookeeperPanel extends JPanel {
         }
 
         try {
-            TreePath parentPath = getTreePath(node).getParentPath();
-            deleteNodeInner(node, true);
-            // Set selected node to parent
-            tree.setSelectionPath(parentPath);
-            tree.grabFocus();
+            zookeeperSync.delete(path);
         } catch (Exception e) {
-            deleteFailed(node, e);
+            logger.error("delete {} failed [{}]", path, e);
         }
-    }
-
-    /**
-     * Add node to zookeeper and to the tree in sorted order while preventing duplicate child nodes. Optionally sets the
-     * focus to the newly added node or the node that already exists with the same name.
-     *
-     * @param parent   parent node to add child to
-     * @param node     new node to be added (if node of same name does not already exist)
-     * @param setFocus determine if focus should be set set to new node
-     */
-    private void addNodeToTree(DefaultMutableTreeNode parent, DefaultMutableTreeNode node, boolean setFocus) {
-        boolean alreadyExists = false;
-        int insertAt = 0;
-
-        for (int i = 0; i < parent.getChildCount(); ++i) {
-            DefaultMutableTreeNode child = (DefaultMutableTreeNode) parent.getChildAt(i);
-            if (node.toString().compareTo(child.toString()) > 0) {
-                insertAt = i + 1;
-            } else if (node.toString().equals(child.toString())) {
-                alreadyExists = true;
-                node = (DefaultMutableTreeNode) parent.getChildAt(i);
-            }
-        }
-        if (!alreadyExists) {
-            treeModel.insertNodeInto(node, parent, insertAt);
-        }
-
-        if (setFocus) {
-            TreePath childPath = getTreePath(node);
-            tree.scrollPathToVisible(childPath);
-            tree.setSelectionPath(childPath);
-            tree.grabFocus();
-        }
-    }
-
-    /**
-     * Add node to zookeeper and to the tree in sorted order while preventing duplicate child nodes. Sets the focus to
-     * the newly added node or the node that already exists with the same name.
-     *
-     * @param parent parent node to add child to
-     * @param node   new node to be added (if node of same name does not already exist)
-     */
-    private void addNodeToTree(DefaultMutableTreeNode parent, DefaultMutableTreeNode node) {
-        addNodeToTree(parent, node, true);
     }
 
     /**
@@ -621,7 +589,7 @@ public class ZookeeperPanel extends JPanel {
      *
      * @param parent parent node to add child to
      */
-    private void createChildNode(DefaultMutableTreeNode parent) {
+    private void createNode(DefaultMutableTreeNode parent) {
         final Pattern BAD_PATH = Pattern.compile("(.*/\\s*/.*|/$)");
         final String badPathMessage = "Bad path. Cannot end with / or contain and empty or whitespace segments";
 
@@ -645,57 +613,23 @@ public class ZookeeperPanel extends JPanel {
             }
         }
 
+        String path;
+
+        // Either add as child or as absolute path
         if (value.startsWith("/")) {
-            parent = rootNode;
-            value = value.substring(1);
+            path = value;
+        } else {
+            String parentPath = getZookeeperNodePath(parent);
+            path = ("/".equals(parentPath) ? "/" : (parentPath + "/")) + value;
         }
 
-        String[] paths = value.split("/");
-        ZookeeperNode child = getZookeeperNode(parent);
-        DefaultMutableTreeNode parentNode = parent;
-
-        for (String subPath : paths) {
-            subPath = subPath.trim();
-
-            DefaultMutableTreeNode childNode = null;
-
-            Enumeration<DefaultMutableTreeNode> children = parentNode.children();
-            while (children.hasMoreElements()) {
-                DefaultMutableTreeNode childNodeCandidate = children.nextElement();
-                if (childNodeCandidate.toString().equals(subPath)) {
-                    childNode = childNodeCandidate;
-                    break;
-                }
+        try {
+            synchronized (createdPaths) {
+                createdPaths.add(path);
             }
-
-            child = ZookeeperNode.create(child, subPath);
-
-            if (childNode == null) {
-                try {
-                    boolean existedInZookeeper = false;
-                    if (client.checkExists().forPath(child.path) == null) {
-                        try {
-                            client.create().forPath(child.path);
-                            logger.info("created {}", child.path);
-                        } catch (KeeperException.NodeExistsException e) {
-                            existedInZookeeper = true;
-                        }
-                    } else {
-                        existedInZookeeper = true;
-                    }
-
-                    if (existedInZookeeper) {
-                        logger.warn("created {} (already existed in zookeeper)", child.path);
-                    }
-                } catch (Exception e) {
-                    logger.error("create {} failed [{}]", child.path, e.getMessage());
-                    return;
-                }
-                childNode = new DefaultMutableTreeNode(child);
-            }
-
-            addNodeToTree(parentNode, childNode);
-            parentNode = childNode;
+            zookeeperSync.create(path);
+        } catch (Exception e) {
+            logger.error("create {} failed [{}]", path, e);
         }
     }
 
@@ -703,22 +637,20 @@ public class ZookeeperPanel extends JPanel {
      * Load tree from zookeeper and display panel.
      */
     private void load() {
-        mainPanel.removeAll();
-        rootNode.removeAllChildren();
-        treeModel.reload();
-        try {
-            for (String childName : client.getChildren().forPath(getZookeeperNode(rootNode).path)) {
-                loadChild(rootNode, childName);
+        if (!offline) {
+            logger.info("loading zookeeper nodes");
+            mainPanel.removeAll();
+            try {
+                rootNode.removeAllChildren();
+                treeModel.reload();
+                zookeeperSync.watch();
+            } catch (Exception e) {
+                logger.error("Failed to execute ZookeeperSync watch [{}]", e);
             }
-        } catch (Exception e) {
-            logger.error("Failed to load node tree: {}", e.getMessage());
+            mainPanel.add(splitPane, BorderLayout.CENTER);
+            refresh();
+            tree.grabFocus();
         }
-        mainPanel.add(splitPane, BorderLayout.CENTER);
-        refresh();
-        tree.expandPath(getTreePath(rootNode));
-        tree.setSelectionRow(0);
-        tree.grabFocus();
-        logger.info("finished synchronizing node tree with zookeeper");
     }
 
     /**
@@ -728,14 +660,10 @@ public class ZookeeperPanel extends JPanel {
      * @param recursive if set watches for all descendant nodes will be created (if they do not already exist)
      */
     private void addWatch(DefaultMutableTreeNode node, boolean recursive) {
-        ZookeeperNode zookeeperNode = getZookeeperNode(node);
-        if (zookeeperNode != null) {
-            watchPanel.addWatch(zookeeperNode.path);
-            if (recursive) {
-                Enumeration<DefaultMutableTreeNode> childNodes = node.breadthFirstEnumeration();
-                while (childNodes.hasMoreElements()) {
-                    addWatch(childNodes.nextElement(), false);
-                }
+        watchPanel.addWatch(getZookeeperNodePath(node));
+        if (recursive) {
+            for (int i = 0; i < node.getChildCount(); ++i) {
+                addWatch((DefaultMutableTreeNode) node.getChildAt(i), true);
             }
         }
     }
@@ -747,14 +675,10 @@ public class ZookeeperPanel extends JPanel {
      * @param recursive if true watches for all descendant nodes will be removed (if they exist)
      */
     private void removeWatch(DefaultMutableTreeNode node, boolean recursive) {
-        ZookeeperNode zookeeperNode = getZookeeperNode(node);
-        if (zookeeperNode != null) {
-            watchPanel.removeWatch(zookeeperNode.path);
-            if (recursive) {
-                Enumeration<DefaultMutableTreeNode> childNodes = node.breadthFirstEnumeration();
-                while (childNodes.hasMoreElements()) {
-                    removeWatch(childNodes.nextElement(), false);
-                }
+        watchPanel.removeWatch(getZookeeperNodePath(node));
+        if (recursive) {
+            for (int i = 0; i < node.getChildCount(); ++i) {
+                removeWatch((DefaultMutableTreeNode) node.getChildAt(i), true);
             }
         }
     }
@@ -792,6 +716,37 @@ public class ZookeeperPanel extends JPanel {
     }
 
     /**
+     * Start curator client
+     */
+    public void connect() {
+        // Loading UI Setup
+
+        JPanel loadingPanel = new JPanel(new GridBagLayout());
+        GridBagConstraints c = new GridBagConstraints();
+
+        c.gridwidth = 1;
+        c.insets.top = c.insets.bottom = 5;
+        c.gridy = 0;
+        loadingPanel.add(new JLabel("Establishing connection to zookeeper @ " + connectionString), c);
+
+        c.gridy += 1;
+        JButton cancelConnectionButton = new JButton("Cancel");
+        cancelConnectionButton.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                connectionWorker.cancel(true);
+                close();
+            }
+        });
+        loadingPanel.add(cancelConnectionButton, c);
+        mainPanel.add(loadingPanel, BorderLayout.CENTER);
+
+        refresh();
+
+        connectionWorker.execute();
+    }
+
+    /**
      * Close curator client
      */
     public void close() {
@@ -807,7 +762,7 @@ public class ZookeeperPanel extends JPanel {
     public static class ZookeeperNode {
         public final static ZookeeperNode root = new ZookeeperNode("/");
 
-        public final String name;
+        private final String name;
         public final String path;
 
         private ZookeeperNode(String path) {
@@ -821,11 +776,11 @@ public class ZookeeperPanel extends JPanel {
             }
         }
 
-        public static ZookeeperNode create(ZookeeperNode parent, String name) {
-            if (parent == root) {
+        public static ZookeeperNode create(String parent, String name) {
+            if ("/".equals(parent)) {
                 return new ZookeeperNode('/' + name);
             }
-            return new ZookeeperNode(parent.path + '/' + name);
+            return new ZookeeperNode(parent + '/' + name);
         }
 
         @Override

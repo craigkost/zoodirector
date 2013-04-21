@@ -1,8 +1,6 @@
 package com.kostbot.zoodirector;
 
-import com.netflix.curator.framework.CuratorFramework;
-import com.netflix.curator.framework.api.CuratorWatcher;
-import org.apache.zookeeper.WatchedEvent;
+import com.google.common.base.Strings;
 import org.apache.zookeeper.data.Stat;
 import org.jdesktop.swingx.JXTable;
 import org.joda.time.LocalDateTime;
@@ -16,6 +14,7 @@ import java.awt.event.*;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.regex.Pattern;
+import java.util.regex.PatternSyntaxException;
 
 /**
  * @author Craig Kost
@@ -23,34 +22,27 @@ import java.util.regex.Pattern;
 public class ZookeeperWatchPanel extends JPanel {
     private static final Logger logger = LoggerFactory.getLogger(ZookeeperWatchPanel.class);
 
-    private CuratorFramework client;
-    private CuratorWatcher watcher;
+    private final ZookeeperSync zookeeperSync;
 
     private final JTextField pathTextField;
+    private final DefaultTableModel patternTableModel;
+    private final JXTable patternWatchTable;
+
+    private final Set<String> watches;
     private final DefaultTableModel tableModel;
-    private final Set<String> watchMap;
     private final JXTable watchTable;
 
-    public ZookeeperWatchPanel(CuratorFramework client) {
-        this.client = client;
+    public ZookeeperWatchPanel(ZookeeperSync zookeeperSync) {
+        this.zookeeperSync = zookeeperSync;
 
-        watcher = new CuratorWatcher() {
+        zookeeperSync.addListener(new ZookeeperSync.Listener() {
             @Override
-            public void process(WatchedEvent event) throws Exception {
-                String path = event.getPath();
-
-                switch (event.getType()) {
-                    case NodeDataChanged:
-                        updateData(path, false);
-                        break;
-                    case NodeDeleted:
-                        updateData(path, true);
-                        break;
-                }
+            public void process(ZookeeperSync.Event e) {
+                updateData(e.path, e.type == ZookeeperSync.Event.Type.delete);
             }
-        };
+        });
 
-        watchMap = new HashSet<String>(10);
+        watches = new HashSet<String>(10);
 
         setLayout(new GridBagLayout());
 
@@ -66,27 +58,79 @@ public class ZookeeperWatchPanel extends JPanel {
         c.fill = GridBagConstraints.HORIZONTAL;
 
         pathTextField = new JTextField();
+        pathTextField.addKeyListener(new KeyAdapter() {
+            @Override
+            public void keyReleased(KeyEvent e) {
+                if (e.getKeyCode() == KeyEvent.VK_ENTER) {
+                    addPatternWatch();
+                }
+            }
+        });
         add(pathTextField, c);
 
         c.gridx += 1;
         c.weightx = 0;
-        JButton addButton = new JButton("Add");
+        JButton addButton = new JButton("Add Pattern");
         addButton.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
-                final Pattern BAD_PATH = Pattern.compile("(.*/\\s*/.*|/$)");
-                String path = pathTextField.getText();
-                if (!BAD_PATH.matcher(path).find()) {
-                    addWatch(path);
-                }
+                addPatternWatch();
             }
         });
         add(addButton, c);
 
         c.fill = GridBagConstraints.BOTH;
+        c.gridx = 0;
+        c.gridy += 1;
+        c.gridwidth = 2;
+        c.weighty = 0.25;
+
+        patternTableModel = new DefaultTableModel(new String[]{"pattern"}, 0);
+
+        patternWatchTable = new JXTable(patternTableModel) {
+            @Override
+            public boolean isCellEditable(int row, int column) {
+                return false;
+            }
+        };
+        patternWatchTable.setFont(ZooDirector.FONT_MONOSPACED);
+        patternWatchTable.setHorizontalScrollEnabled(true);
+        add(new JScrollPane(patternWatchTable), c);
+
+        final JPopupMenu watchPatternTableMenu = new JPopupMenu();
+
+        JMenuItem removePatternWatchMenuItem = new JMenuItem("Remove");
+        removePatternWatchMenuItem.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                synchronized (patternTableModel) {
+                    if (patternWatchTable.getSelectedRowCount() > 0) {
+                        int[] rows = patternWatchTable.getSelectedRows();
+                        for (int i = rows.length - 1; i >= 0; --i) {
+                            patternTableModel.removeRow(rows[i]);
+                        }
+                    }
+                }
+            }
+        });
+
+        watchPatternTableMenu.add(removePatternWatchMenuItem);
+
+        patternWatchTable.addMouseListener(new MouseAdapter() {
+            @Override
+            public void mouseClicked(MouseEvent e) {
+                if (e.getButton() == MouseEvent.BUTTON3) {
+                    // Show context menu if clicking selected row
+                    if (patternWatchTable.isRowSelected(patternWatchTable.rowAtPoint(e.getPoint()))) {
+                        watchPatternTableMenu.show(patternWatchTable, e.getX(), e.getY());
+                    }
+                }
+            }
+        });
+
         c.gridwidth = 2;
         c.weightx = 1.0;
-        c.weighty = 1.0;
+        c.weighty = 0.75;
         c.gridx = 0;
         c.gridy += 1;
         tableModel = new DefaultTableModel(new String[]{"path", "ephemeral", "created", "modified", "version", "data"}, 0);
@@ -153,7 +197,7 @@ public class ZookeeperWatchPanel extends JPanel {
     }
 
     synchronized private void updateData(String path, boolean deleted) {
-        if (watchMap.contains(path)) {
+        if (watches.contains(path)) {
             int row = getRow(path);
 
             if (row < 0) {
@@ -166,76 +210,99 @@ public class ZookeeperWatchPanel extends JPanel {
             } else {
                 logger.info("[watch] {} updated", path);
                 try {
-                    Stat stat = client.checkExists().usingWatcher(watcher).forPath(path);
+                    Stat stat = zookeeperSync.getStat(path);
                     byte[] data = null;
 
                     if (stat != null) {
-                        data = client.getData().usingWatcher(watcher).forPath(path);
+                        data = zookeeperSync.getData(path);
                     }
                     setData(row, stat, data);
                 } catch (Exception e) {
                     logger.error("[watch] {} update failed [{}]", path, e.getMessage());
                 }
             }
+        } else if (!deleted) {
+            synchronized (patternTableModel) {
+                for (int i = 0; i < patternTableModel.getRowCount(); ++i) {
+                    Pattern pattern = (Pattern) patternTableModel.getValueAt(i, 0);
+                    if (pattern.matcher(path).matches()) {
+                        addWatch(path);
+                    }
+                }
+            }
         }
     }
 
-    private void addRow(String path, Stat stat, byte[] data) {
-        logger.info("{} watch added", path);
-        tableModel.addRow(new Object[]{
-                path,
-                stat == null ? null : (stat.getEphemeralOwner() != 0),
-                stat == null ? null : new LocalDateTime(stat.getCtime()),
-                stat == null ? null : new LocalDateTime(stat.getMtime()),
-                stat == null ? null : stat.getVersion(),
-                data == null ? null : new String(data)
-        });
-        watchTable.packAll();
-    }
-
-    synchronized private void remoteWatch(String path, int row) {
+    synchronized private void removeWatch(String path, int row) {
         logger.info("{} watch removed", path);
         tableModel.removeRow(row);
-        watchMap.remove(path);
+        watches.remove(path);
     }
 
     private void removeWatch(int row) {
         String path = (String) tableModel.getValueAt(row, 0);
-        remoteWatch(path, row);
+        removeWatch(path, row);
     }
 
     public void removeWatch(String path) {
-        if (watchMap.contains(path)) {
+        if (watches.contains(path)) {
             int row = getRow(path);
 
             if (row < 0) {
                 return;
             }
 
-            remoteWatch(path, row);
+            removeWatch(path, row);
         }
     }
 
     synchronized public boolean hasWatch(String path) {
-        return watchMap.contains(path);
+        return watches.contains(path);
     }
 
     synchronized public void addWatch(String path) {
-        if (!watchMap.contains(path)) {
+        if (!watches.contains(path)) {
+            logger.info("{} watch added", path);
+            watches.add(path);
+            tableModel.addRow(new Object[]{path, null, null, null, null, null});
             try {
-                Stat stat = client.checkExists().usingWatcher(watcher).forPath(path);
+                updateData(path, zookeeperSync.getStat(path) == null);
+            } catch (Exception e) {
+                logger.error("[watch] {} add failed [{}]", path, e);
+            }
+        }
+    }
 
-                if (stat == null) {
-                    logger.error("watch on non-existent path {} not supported", path);
+    private void addPatternWatch() {
+        String watchPattern = pathTextField.getText();
+        if (Strings.isNullOrEmpty(watchPattern)) {
+            return;
+        }
+
+        Pattern pattern;
+        try {
+            pattern = Pattern.compile(watchPattern);
+        } catch (PatternSyntaxException e) {
+            logger.error("bad wild card pattern [{}]", e.getMessage());
+            return;
+        }
+
+        synchronized (patternTableModel) {
+            // Scan to see if pattern already exists
+            for (int i = 0; i < patternTableModel.getRowCount(); ++i) {
+                if (((Pattern) patternTableModel.getValueAt(i, 0)).pattern().equals(watchPattern)) {
+                    logger.debug("watch pattern {} already exists", watchPattern);
                     return;
                 }
-
-                byte[] data = client.getData().usingWatcher(watcher).forPath(path);
-                addRow(path, stat, data);
-            } catch (Exception e) {
-                logger.error("failed to add {} watch {}", path, e.getMessage());
             }
-            watchMap.add(path);
+            patternTableModel.addRow(new Object[]{pattern});
+            patternWatchTable.packAll();
+            for (String node : zookeeperSync.getNodes()) {
+                if (pattern.matcher(node).matches()) {
+                    addWatch(node);
+                }
+            }
         }
+        pathTextField.setText("");
     }
 }

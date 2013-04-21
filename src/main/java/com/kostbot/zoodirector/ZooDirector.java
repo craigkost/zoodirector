@@ -11,15 +11,21 @@ import java.awt.*;
 import java.awt.event.*;
 import java.io.File;
 import java.io.IOException;
+import java.net.URI;
+import java.util.Map;
 
 public class ZooDirector extends JFrame {
     private static final Logger logger = LoggerFactory.getLogger(ZooDirector.class);
 
+    private static final String WIKI_PATH_URL = "https://github.com/kostbot/zoodirector/wiki";
     public static final Font FONT_MONOSPACED = new Font("Monospaced", Font.PLAIN, 11);
     public static final String DATE_FORMAT = "yyyy-MM-dd HH:mm:ss.SSS";
 
+    private JMenuBar menuBar;
+
     private final ZooDirectorConfig config;
     private ZookeeperPanel zookeeperPanel;
+    private JMenu connectMenu;
 
     private ZooDirector(ZooDirectorConfig config) {
         super("zoodirector");
@@ -42,9 +48,11 @@ public class ZooDirector extends JFrame {
         this.pack();
     }
 
-    private class HtmlInfoDialog extends JDialog {
-        HtmlInfoDialog(Frame owner, String title, String htmlResourcePath, int width, int height) {
-            super(owner, title);
+    private class HtmlInfoDialog extends JFrame {
+        HtmlInfoDialog(String title, String htmlResourcePath, int width, int height) {
+            super(title);
+
+            setDefaultCloseOperation(WindowConstants.HIDE_ON_CLOSE);
 
             String text = "";
             try {
@@ -93,18 +101,13 @@ public class ZooDirector extends JFrame {
         }
         zookeeperPanel = new ZookeeperPanel(connectionString, connectionRetryPeriod);
         getContentPane().add(zookeeperPanel);
+        zookeeperPanel.connect();
     }
 
-    /**
-     * Create menu bar
-     */
-    private void setupMenuBar() {
-        final JMenuBar menuBar = new JMenuBar();
+    private void loadConnectionMenu() {
+        connectMenu.removeAll();
 
-        JMenu connectMenu = new JMenu("Connect");
-        connectMenu.setMnemonic(KeyEvent.VK_C);
-        menuBar.add(connectMenu);
-
+        // TODO add shortcut to quick connect for adding an alias
         JMenuItem quickConnect = new JMenuItem("Quick Connect");
         connectMenu.add(quickConnect);
         quickConnect.addActionListener(new ActionListener() {
@@ -127,51 +130,92 @@ public class ZooDirector extends JFrame {
         quickConnect.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_N, InputEvent.CTRL_DOWN_MASK));
         quickConnect.setMnemonic(KeyEvent.VK_Q);
 
-        String[] connectionStrings = config.getConnectionStrings();
+        final Map<String, String> connectionAliases = config.getConnectionAliases();
 
-        if (connectionStrings != null && connectionStrings.length > 0) {
+        if (connectionAliases.size() > 0) {
             connectMenu.addSeparator();
-            for (final String connectionString : connectionStrings) {
-                JMenuItem menuItem = new JMenuItem(connectionString);
+
+            for (final String connectionAlias : connectionAliases.keySet()) {
+                final String connectionString = connectionAliases.get(connectionAlias);
+                JMenuItem menuItem = new JMenuItem(connectionAlias);
                 menuItem.addActionListener(new ActionListener() {
                     @Override
                     public void actionPerformed(ActionEvent e) {
                         connect(connectionString, config.getConnectionRetryPeriod());
                     }
                 });
+                menuItem.setToolTipText(connectionString);
                 connectMenu.add(menuItem);
             }
         }
+    }
 
-        final JDialog aboutDialog = new HtmlInfoDialog(this, "About", "/about.html", 400, 225);
+    /**
+     * Create menu bar
+     */
+    private void setupMenuBar() {
+        menuBar = new JMenuBar();
 
-        aboutDialog.setLocationRelativeTo(null);
-        aboutDialog.setVisible(false);
+        connectMenu = new JMenu("Connect");
+        connectMenu.setMnemonic(KeyEvent.VK_C);
+        menuBar.add(connectMenu);
 
-        final JDialog commandHelpDialog = new HtmlInfoDialog(this, "Command Usage", "/command-usage.html", 600, 400);
+        loadConnectionMenu();
 
-        commandHelpDialog.setLocationRelativeTo(null);
-        commandHelpDialog.setVisible(false);
+        // Settings Menu
+        JMenu settingsMenu = new JMenu("Settings");
+        settingsMenu.setMnemonic(KeyEvent.VK_S);
 
+        // Edit
+        JMenuItem editSettingsMenuItem = new JMenuItem("Edit");
+        editSettingsMenuItem.setMnemonic(KeyEvent.VK_E);
+        editSettingsMenuItem.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_E, InputEvent.CTRL_DOWN_MASK));
+        editSettingsMenuItem.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                ZooDirectorConfigEditor configEditor = new ZooDirectorConfigEditor((JFrame) SwingUtilities.getRoot(zookeeperPanel), config);
+                configEditor.setLocationRelativeTo(SwingUtilities.getRoot(zookeeperPanel));
+                configEditor.setVisible(true);
+
+                configEditor.addWindowListener(new WindowAdapter() {
+                    @Override
+                    public void windowClosed(WindowEvent e) {
+                        loadConnectionMenu();
+                    }
+                });
+            }
+        });
+        settingsMenu.add(editSettingsMenuItem);
+        menuBar.add(settingsMenu);
+
+        // Help Menu
         JMenu helpMenu = new JMenu("Help");
         helpMenu.setMnemonic(KeyEvent.VK_H);
+
+        // About
+        final JFrame aboutDialog = new HtmlInfoDialog("About", "/about.html", 400, 225);
 
         JMenuItem aboutMenuItem = new JMenuItem("About");
         aboutMenuItem.setMnemonic(KeyEvent.VK_A);
         aboutMenuItem.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
+                aboutDialog.setLocationRelativeTo(SwingUtilities.getRoot(zookeeperPanel));
                 aboutDialog.setVisible(true);
             }
         });
         helpMenu.add(aboutMenuItem);
 
-        JMenuItem commandUsageMenuItem = new JMenuItem("Commands");
-        commandUsageMenuItem.setMnemonic(KeyEvent.VK_C);
+        JMenuItem commandUsageMenuItem = new JMenuItem("Wiki");
+        commandUsageMenuItem.setMnemonic(KeyEvent.VK_W);
         commandUsageMenuItem.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
-                commandHelpDialog.setVisible(true);
+                try {
+                    Desktop.getDesktop().browse(new URI(WIKI_PATH_URL));
+                } catch (Exception e1) {
+                    logger.error("failed to redirect to help page");
+                }
             }
         });
         helpMenu.add(commandUsageMenuItem);
@@ -199,7 +243,7 @@ public class ZooDirector extends JFrame {
         String configFilePath = System.getenv("ZOODIRECTOR_CONFIG");
 
         if (configFilePath == null) {
-            configFilePath = System.getProperty("user.home") + File.separator + ".zoodirector";
+            configFilePath = System.getProperty("user.home") + File.separator + "zoodirector.xml";
         }
 
         ZooDirector zooDirector = new ZooDirector(new ZooDirectorConfig(configFilePath));
