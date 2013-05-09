@@ -1,6 +1,7 @@
 package com.kostbot.zoodirector;
 
 import com.google.common.base.Strings;
+import com.kostbot.zoodirector.helpers.DynamicTable;
 import org.jdesktop.swingx.JXTable;
 
 import javax.swing.*;
@@ -31,12 +32,7 @@ public class ZooDirectorConfigEditor extends JDialog {
             removeAliasMenuItem.addActionListener(new ActionListener() {
                 @Override
                 public void actionPerformed(ActionEvent e) {
-                    if (aliasTable.getSelectedRowCount() > 0) {
-                        int[] rows = aliasTable.getSelectedRows();
-                        for (int i = rows.length - 1; i >= 0; --i) {
-                            aliasTableModel.removeRow(rows[i]);
-                        }
-                    }
+                    DynamicTable.removeSelectedRows(aliasTable);
                 }
             });
             add(removeAliasMenuItem);

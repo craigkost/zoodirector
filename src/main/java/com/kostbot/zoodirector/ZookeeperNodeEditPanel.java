@@ -1,10 +1,10 @@
 package com.kostbot.zoodirector;
 
 import com.google.common.base.Strings;
+import com.kostbot.zoodirector.workers.LoadDataWorker;
+import com.kostbot.zoodirector.workers.SaveDataWorker;
 import org.apache.zookeeper.data.Stat;
 import org.joda.time.DateTime;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import javax.swing.*;
 import java.awt.*;
@@ -16,14 +16,15 @@ import java.awt.event.*;
  * @author Craig Kost
  */
 public class ZookeeperNodeEditPanel extends JPanel {
-    private static final Logger logger = LoggerFactory.getLogger(ZookeeperNodeEditPanel.class);
-
     private static final String PATH = "Path";
     private static final String PATH_EPHEMERAL = "Path (Ephemeral)";
 
-    private final ZookeeperSync zookeeperSync;
+    private ZookeeperSync zookeeperSync;
 
-    private String path;
+    private SwingWorker<Void, Void> swingWorker;
+
+    private volatile String path;
+    private volatile String initData; // Used for detecting data edit changes
 
     private final JLabel pathLabel;
     private final JTextField pathTextField;
@@ -36,12 +37,8 @@ public class ZookeeperNodeEditPanel extends JPanel {
     private final JButton clearButton;
     private final JButton reloadButton;
 
-    private String initData; // Used for detecting data edit changes
-
-    ZookeeperNodeEditPanel(final ZookeeperSync zookeeperSync) {
+    ZookeeperNodeEditPanel() {
         super();
-
-        this.zookeeperSync = zookeeperSync;
 
         this.setLayout(new GridBagLayout());
 
@@ -120,7 +117,7 @@ public class ZookeeperNodeEditPanel extends JPanel {
 
                 switch (e.getKeyCode()) {
                     case KeyEvent.VK_F5:
-                        reload();
+                        setZookeeperPath(path);
                         break;
                     case KeyEvent.VK_S:
                         // Ctrl + S
@@ -147,7 +144,7 @@ public class ZookeeperNodeEditPanel extends JPanel {
         reloadButton.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
-                reload();
+                setZookeeperPath(path);
             }
         });
         buttonPanel.add(reloadButton);
@@ -194,44 +191,32 @@ public class ZookeeperNodeEditPanel extends JPanel {
     }
 
     /**
-     * Reload data from zookeeper.
-     */
-    private void reload() {
-        try {
-            byte[] data = zookeeperSync.getData(path);
-            initData = data == null ? "" : new String(data);
-            dataTextArea.setText(initData);
-            isDataUpdated();
-        } catch (Exception e1) {
-            logger.error("reload {} failed [{}]", path, e1.getMessage());
-        }
-    }
-
-    /**
      * If the data has been updated since last fetch data will be set in zookeeper.
      */
     private void save() {
         if (isDataUpdated()) {
-            try {
-                zookeeperSync.setData(path, dataTextArea.getText().getBytes());
-                logger.info("saved {}", path);
-                initData = dataTextArea.getText();
-                setZookeeperPath(path);
-            } catch (Exception e1) {
-                logger.error("save {} failed [{}]", path, e1.getMessage());
-            }
+            executeSwingWorker(new SaveDataWorker(zookeeperSync, path, dataTextArea.getText().getBytes(), new SaveDataWorker.Callback() {
+                @Override
+                public void execute(String path) {
+                    setZookeeperPath(path);
+                }
+            }));
         }
     }
 
     /**
-     * Clear edit panel fields.
+     * Helper method for cancelling current swingWorker if it exists and execute provided swingWorker if it exists.
+     *
+     * @param swingWorker
      */
-    private void clear() {
-        versionTextField.setText("");
-        cTimeTextField.setText("");
-        mTimeTextField.setText("");
-        pathTextField.setText("");
-        dataTextArea.setText("");
+    synchronized private void executeSwingWorker(SwingWorker<Void, Void> swingWorker) {
+        if (this.swingWorker != null) {
+            this.swingWorker.cancel(true);
+        }
+        this.swingWorker = swingWorker;
+        if (swingWorker != null) {
+            swingWorker.execute();
+        }
     }
 
     /**
@@ -241,46 +226,73 @@ public class ZookeeperNodeEditPanel extends JPanel {
      */
     public void setZookeeperPath(String path) {
         this.path = path;
-        if (path == null) {
-            clear();
+        executeSwingWorker(new LoadDataWorker(zookeeperSync, path, new LoadDataWorker.Callback() {
+            @Override
+            public void execute(String path, Stat stat, byte[] data) {
+                setData(path, stat, data);
+            }
+        }));
+    }
+
+    /**
+     * Helper for setting panel text fields and enabling/disabling buttons accordingly.
+     * <p/>
+     * EDT thread safe
+     *
+     * @param path
+     * @param stat
+     * @param data
+     */
+    private void setData(String path, Stat stat, byte[] data) {
+        if (stat == null) {
+            versionTextField.setText("");
+            cTimeTextField.setText("");
+            mTimeTextField.setText("");
+            pathTextField.setText("");
+            dataTextArea.setText("");
+
             initData = null;
+
             pathLabel.setText(PATH);
+            pathTextField.setText(path == null ? "" : path);
+
             dataTextArea.setEnabled(false);
+
             reloadButton.setEnabled(false);
             clearButton.setEnabled(false);
             saveButton.setEnabled(false);
         } else {
             dataTextArea.setEnabled(true);
-            reloadButton.setEnabled(true);
-            pathTextField.setText(path);
-            try {
-                byte[] data = zookeeperSync.getData(path);
-                initData = data == null ? "" : new String(data);
-                dataTextArea.setText(initData);
-                Stat stat = zookeeperSync.getStat(path);
-                pathLabel.setText(stat.getEphemeralOwner() == 0 ? PATH : PATH_EPHEMERAL);
-                versionTextField.setText(Integer.toString(stat.getVersion()));
-                cTimeTextField.setText(new DateTime(stat.getCtime()).toString(ZooDirector.DATE_FORMAT));
-                mTimeTextField.setText(new DateTime(stat.getMtime()).toString(ZooDirector.DATE_FORMAT));
-            } catch (Exception e) {
-                logger.error("load {} failed [{}]", path, e.getMessage());
-                setZookeeperPath(null);
-            }
             dataTextArea.setEditable(true);
-            clearButton.setEnabled(true);
-            saveButton.setEnabled(true);
+            reloadButton.setEnabled(true);
+
+            pathLabel.setText(stat.getEphemeralOwner() == 0 ? PATH : PATH_EPHEMERAL);
+            pathTextField.setText(path);
+
+            versionTextField.setText(Integer.toString(stat.getVersion()));
+            cTimeTextField.setText(new DateTime(stat.getCtime()).toString(ZooDirector.DATE_FORMAT));
+            mTimeTextField.setText(new DateTime(stat.getMtime()).toString(ZooDirector.DATE_FORMAT));
+
+            initData = data == null ? "" : new String(data);
+            dataTextArea.setText(initData);
+
+            isDataUpdated();
         }
-        isDataUpdated();
     }
 
     /**
      * Disable editing of zookeeper node.
      */
     public void setOffline() {
+        executeSwingWorker(null);
         dataTextArea.setEditable(false);
         dataTextArea.setEnabled(false);
         clearButton.setEnabled(false);
         saveButton.setEnabled(false);
         reloadButton.setEnabled(false);
+    }
+
+    public void setZookeeperSync(ZookeeperSync zookeeperSync) {
+        this.zookeeperSync = zookeeperSync;
     }
 }

@@ -1,6 +1,8 @@
 package com.kostbot.zoodirector;
 
 import com.google.common.base.Strings;
+import com.kostbot.zoodirector.helpers.DynamicTable;
+import com.kostbot.zoodirector.workers.LoadDataWorker;
 import org.apache.zookeeper.data.Stat;
 import org.jdesktop.swingx.JXTable;
 import org.joda.time.LocalDateTime;
@@ -22,7 +24,7 @@ import java.util.regex.PatternSyntaxException;
 public class ZookeeperWatchPanel extends JPanel {
     private static final Logger logger = LoggerFactory.getLogger(ZookeeperWatchPanel.class);
 
-    private final ZookeeperSync zookeeperSync;
+    private ZookeeperSync zookeeperSync;
 
     private final JTextField pathTextField;
     private final DefaultTableModel patternTableModel;
@@ -32,19 +34,12 @@ public class ZookeeperWatchPanel extends JPanel {
     private final DefaultTableModel tableModel;
     private final JXTable watchTable;
 
-    public ZookeeperWatchPanel(ZookeeperSync zookeeperSync) {
-        this.zookeeperSync = zookeeperSync;
-
-        zookeeperSync.addListener(new ZookeeperSync.Listener() {
-            @Override
-            public void process(ZookeeperSync.Event e) {
-                updateData(e.path, e.type == ZookeeperSync.Event.Type.delete);
-            }
-        });
-
+    public ZookeeperWatchPanel() {
         watches = new HashSet<String>(10);
 
-        setLayout(new GridBagLayout());
+        setLayout(new BorderLayout());
+
+        JPanel patternWatchPanel = new JPanel(new GridBagLayout());
 
         GridBagConstraints c = new GridBagConstraints();
 
@@ -52,8 +47,6 @@ public class ZookeeperWatchPanel extends JPanel {
         c.gridx = c.gridy = 0;
         c.weightx = 0.5;
         c.insets.top = 5;
-        c.insets.left = 5;
-        c.insets.right = 5;
         c.insets.bottom = 2;
         c.fill = GridBagConstraints.HORIZONTAL;
 
@@ -66,7 +59,7 @@ public class ZookeeperWatchPanel extends JPanel {
                 }
             }
         });
-        add(pathTextField, c);
+        patternWatchPanel.add(pathTextField, c);
 
         c.gridx += 1;
         c.weightx = 0;
@@ -77,7 +70,7 @@ public class ZookeeperWatchPanel extends JPanel {
                 addPatternWatch();
             }
         });
-        add(addButton, c);
+        patternWatchPanel.add(addButton, c);
 
         c.fill = GridBagConstraints.BOTH;
         c.gridx = 0;
@@ -95,7 +88,6 @@ public class ZookeeperWatchPanel extends JPanel {
         };
         patternWatchTable.setFont(ZooDirector.FONT_MONOSPACED);
         patternWatchTable.setHorizontalScrollEnabled(true);
-        add(new JScrollPane(patternWatchTable), c);
 
         final JPopupMenu watchPatternTableMenu = new JPopupMenu();
 
@@ -104,12 +96,7 @@ public class ZookeeperWatchPanel extends JPanel {
             @Override
             public void actionPerformed(ActionEvent e) {
                 synchronized (patternTableModel) {
-                    if (patternWatchTable.getSelectedRowCount() > 0) {
-                        int[] rows = patternWatchTable.getSelectedRows();
-                        for (int i = rows.length - 1; i >= 0; --i) {
-                            patternTableModel.removeRow(rows[i]);
-                        }
-                    }
+                    DynamicTable.removeSelectedRows(patternWatchTable);
                 }
             }
         });
@@ -128,11 +115,8 @@ public class ZookeeperWatchPanel extends JPanel {
             }
         });
 
-        c.gridwidth = 2;
-        c.weightx = 1.0;
-        c.weighty = 0.75;
-        c.gridx = 0;
-        c.gridy += 1;
+        patternWatchPanel.add(new JScrollPane(patternWatchTable), c);
+
         tableModel = new DefaultTableModel(new String[]{"path", "ephemeral", "created", "modified", "version", "data"}, 0);
 
         watchTable = new JXTable(tableModel) {
@@ -143,7 +127,6 @@ public class ZookeeperWatchPanel extends JPanel {
         };
         watchTable.setFont(ZooDirector.FONT_MONOSPACED);
         watchTable.setHorizontalScrollEnabled(true);
-        add(new JScrollPane(watchTable), c);
 
         final JPopupMenu tableMenu = new JPopupMenu();
 
@@ -151,12 +134,12 @@ public class ZookeeperWatchPanel extends JPanel {
         removeWatchMenuItem.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
-                if (watchTable.getSelectedRowCount() > 0) {
-                    int[] rows = watchTable.getSelectedRows();
-                    for (int i = rows.length - 1; i >= 0; --i) {
-                        removeWatch(rows[i]);
+                DynamicTable.removeSelectedRows(watchTable, new DynamicTable.Callback() {
+                    @Override
+                    public void execute(int row) {
+                        watches.remove(tableModel.getValueAt(row, 0));
                     }
-                }
+                });
             }
         });
 
@@ -173,6 +156,11 @@ public class ZookeeperWatchPanel extends JPanel {
                 }
             }
         });
+
+        JSplitPane splitPane = new JSplitPane(JSplitPane.VERTICAL_SPLIT, patternWatchPanel, new JScrollPane(watchTable));
+        splitPane.setOneTouchExpandable(true);
+        splitPane.setDividerLocation(200);
+        add(splitPane, BorderLayout.CENTER);
     }
 
     private void setData(int row, Stat stat, byte[] data) {
@@ -198,7 +186,7 @@ public class ZookeeperWatchPanel extends JPanel {
 
     synchronized private void updateData(String path, boolean deleted) {
         if (watches.contains(path)) {
-            int row = getRow(path);
+            final int row = getRow(path);
 
             if (row < 0) {
                 return;
@@ -209,17 +197,15 @@ public class ZookeeperWatchPanel extends JPanel {
                 setData(row, null, null);
             } else {
                 logger.info("[watch] {} updated", path);
-                try {
-                    Stat stat = zookeeperSync.getStat(path);
-                    byte[] data = null;
-
-                    if (stat != null) {
-                        data = zookeeperSync.getData(path);
+                new LoadDataWorker(zookeeperSync, path, new LoadDataWorker.Callback() {
+                    @Override
+                    public void execute(String path, final Stat stat, final byte[] data) {
+                        if (stat == null) {
+                            logger.error("[watch] {} update failed", path);
+                        }
+                        setData(row, stat, data);
                     }
-                    setData(row, stat, data);
-                } catch (Exception e) {
-                    logger.error("[watch] {} update failed [{}]", path, e.getMessage());
-                }
+                }).execute();
             }
         } else if (!deleted) {
             synchronized (patternTableModel) {
@@ -233,27 +219,13 @@ public class ZookeeperWatchPanel extends JPanel {
         }
     }
 
-    synchronized private void removeWatch(String path, int row) {
-        logger.info("{} watch removed", path);
-        tableModel.removeRow(row);
-        watches.remove(path);
-    }
-
-    private void removeWatch(int row) {
-        String path = (String) tableModel.getValueAt(row, 0);
-        removeWatch(path, row);
-    }
-
-    public void removeWatch(String path) {
-        if (watches.contains(path)) {
-            int row = getRow(path);
-
-            if (row < 0) {
-                return;
-            }
-
-            removeWatch(path, row);
+    synchronized public boolean removeWatch(String path) {
+        if (watches.remove(path)) {
+            tableModel.removeRow(getRow(path));
+            logger.info("{} watch removed", path);
+            return true;
         }
+        return false;
     }
 
     synchronized public boolean hasWatch(String path) {
@@ -265,11 +237,7 @@ public class ZookeeperWatchPanel extends JPanel {
             logger.info("{} watch added", path);
             watches.add(path);
             tableModel.addRow(new Object[]{path, null, null, null, null, null});
-            try {
-                updateData(path, zookeeperSync.getStat(path) == null);
-            } catch (Exception e) {
-                logger.error("[watch] {} add failed [{}]", path, e);
-            }
+            updateData(path, false);
         }
     }
 
@@ -304,5 +272,15 @@ public class ZookeeperWatchPanel extends JPanel {
             }
         }
         pathTextField.setText("");
+    }
+
+    public void setZookeeperSync(ZookeeperSync zookeeperSync) {
+        this.zookeeperSync = zookeeperSync;
+        zookeeperSync.addListener(new ZookeeperSync.Listener() {
+            @Override
+            public void process(ZookeeperSync.Event e) {
+                updateData(e.path, e.type == ZookeeperSync.Event.Type.delete);
+            }
+        });
     }
 }

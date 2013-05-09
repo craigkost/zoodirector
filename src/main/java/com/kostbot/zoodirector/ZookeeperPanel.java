@@ -26,9 +26,11 @@ import java.util.regex.Pattern;
 public final class ZookeeperPanel extends JPanel {
     private static final Logger logger = LoggerFactory.getLogger(ZookeeperPanel.class);
 
-    private final ZookeeperSync zookeeperSync;
-    private final CuratorFramework client;
+    private ZookeeperSync zookeeperSync;
+    private CuratorFramework client;
+
     private final String connectionString;
+    private final int connectionRetryPeriod;
 
     private volatile boolean offline; // prevent operations if offline.
 
@@ -88,51 +90,9 @@ public final class ZookeeperPanel extends JPanel {
      * @param connectionString      zookeeper connection string
      * @param connectionRetryPeriod time to sleep between retries
      */
-    public ZookeeperPanel(final String connectionString, int connectionRetryPeriod) {
+    public ZookeeperPanel(String connectionString, int connectionRetryPeriod) {
         this.connectionString = connectionString;
-
-        client = CuratorFrameworkFactory.newClient(connectionString, new RetryOneTime(connectionRetryPeriod));
-        client.getConnectionStateListenable().addListener(new ConnectionStateListener() {
-            @Override
-            public void stateChanged(CuratorFramework curatorFramework, ConnectionState connectionState) {
-                switch (connectionState) {
-                    case LOST:
-                    case SUSPENDED:
-                        offline = true;
-                        nodeEditPanel.setOffline();
-                        logger.warn("connection to {} has been " + (connectionState == ConnectionState.LOST ? "lost" : "suspended") +
-                                ". Attempts will be made to reestablish the connection", connectionString);
-                        break;
-                    case RECONNECTED:
-                        offline = false;
-                        logger.info("connection to {} has been reestablished", connectionString);
-                    default:
-                        load();
-                        tree.expandPath(getTreePath(rootNode));
-                        tree.setSelectionRow(0);
-                }
-            }
-        });
-
-        // Responsible for managing all tree additions and removals.
-        zookeeperSync = new ZookeeperSync(client);
-        zookeeperSync.addListener(new ZookeeperSync.Listener() {
-            @Override
-            public void process(ZookeeperSync.Event e) {
-                boolean created;
-                synchronized (createdPaths) {
-                    created = createdPaths.remove(e.path);
-                }
-                switch (e.type) {
-                    case add:
-                        addNodeToTree(e.path, created);
-                        break;
-                    case delete:
-                        removeNodeFromTree(e.path);
-                        break;
-                }
-            }
-        });
+        this.connectionRetryPeriod = connectionRetryPeriod;
 
         this.setLayout(new BorderLayout());
 
@@ -365,10 +325,10 @@ public final class ZookeeperPanel extends JPanel {
         });
 
         JTabbedPane tabbedPane = new JTabbedPane();
-        nodeEditPanel = new ZookeeperNodeEditPanel(zookeeperSync);
+        nodeEditPanel = new ZookeeperNodeEditPanel();
         tabbedPane.add(nodeEditPanel, "View/Edit");
 
-        watchPanel = new ZookeeperWatchPanel(zookeeperSync);
+        watchPanel = new ZookeeperWatchPanel();
         tabbedPane.add(watchPanel, "Watches");
 
         splitPane = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, treePane, tabbedPane);
@@ -380,7 +340,60 @@ public final class ZookeeperPanel extends JPanel {
         connectionWorker = new SwingWorker<Void, Void>() {
             @Override
             protected Void doInBackground() {
-                logger.info("connecting to cluster {}", connectionString);
+                client = CuratorFrameworkFactory.newClient(
+                        ZookeeperPanel.this.connectionString,
+                        new RetryOneTime(ZookeeperPanel.this.connectionRetryPeriod)
+                );
+                client.getConnectionStateListenable().addListener(new ConnectionStateListener() {
+                    @Override
+                    public void stateChanged(CuratorFramework curatorFramework, ConnectionState connectionState) {
+                        switch (connectionState) {
+                            case LOST:
+                            case SUSPENDED:
+                                offline = true;
+                                nodeEditPanel.setOffline();
+                                logger.warn("connection to {} has been " + (connectionState == ConnectionState.LOST ? "lost" : "suspended") +
+                                        ". Attempts will be made to reestablish the connection", ZookeeperPanel.this.connectionString);
+                                break;
+                            case RECONNECTED:
+                                offline = false;
+                                logger.info("connection to {} has been reestablished", ZookeeperPanel.this.connectionString);
+                            default:
+                                load();
+                                tree.expandPath(getTreePath(rootNode));
+                                tree.setSelectionRow(0);
+                        }
+                    }
+                });
+
+                // Responsible for managing all tree additions and removals.
+                zookeeperSync = new ZookeeperSync(client);
+                zookeeperSync.addListener(new ZookeeperSync.Listener() {
+                    @Override
+                    public void process(final ZookeeperSync.Event e) {
+                        final boolean created;
+                        synchronized (createdPaths) {
+                            created = createdPaths.remove(e.path);
+                        }
+                        SwingUtilities.invokeLater(new Runnable() {
+                            @Override
+                            public void run() {
+                                switch (e.type) {
+                                    case add:
+                                        addNodeToTree(e.path, created);
+                                        break;
+                                    case delete:
+                                        removeNodeFromTree(e.path);
+                                        break;
+                                }
+                            }
+                        });
+                    }
+                });
+
+                watchPanel.setZookeeperSync(zookeeperSync);
+                nodeEditPanel.setZookeeperSync(zookeeperSync);
+                logger.info("connecting to cluster {}", ZookeeperPanel.this.connectionString);
                 client.start();
                 return null;
             }
@@ -416,7 +429,6 @@ public final class ZookeeperPanel extends JPanel {
      * @param path
      */
     protected void addNodeToTree(String path, boolean select) {
-
         // Ignore root
         if ("/".equals(path)) {
             return;
@@ -467,7 +479,6 @@ public final class ZookeeperPanel extends JPanel {
      * @param path
      */
     protected void removeNodeFromTree(String path) {
-
         DefaultMutableTreeNode parent = rootNode;
 
         String[] segments = path.substring(1).split("/");
@@ -520,6 +531,7 @@ public final class ZookeeperPanel extends JPanel {
         }
 
         try {
+            // TODO run on SwingWorker or use ZK Background
             zookeeperSync.prune(path);
         } catch (Exception e) {
             logger.error("prune {} failed [{}]", path, e);
@@ -546,6 +558,7 @@ public final class ZookeeperPanel extends JPanel {
         }
 
         try {
+            // TODO run on SwingWorker or use ZK Background
             zookeeperSync.trim(path);
         } catch (Exception e) {
             logger.error("trim {} failed [{}]", path, e);
@@ -578,6 +591,7 @@ public final class ZookeeperPanel extends JPanel {
         }
 
         try {
+            // TODO run on SwingWorker or use ZK Background
             zookeeperSync.delete(path);
         } catch (Exception e) {
             logger.error("delete {} failed [{}]", path, e);
@@ -624,11 +638,25 @@ public final class ZookeeperPanel extends JPanel {
         }
 
         try {
-            synchronized (createdPaths) {
-                createdPaths.add(path);
+            if (zookeeperSync.getStat(path) != null) {
+                addNodeToTree(path, true);
+                return;
             }
+        } catch (Exception e) {
+            logger.error("create {} failed [{}]", path, e);
+        }
+
+        synchronized (createdPaths) {
+            createdPaths.add(path);
+        }
+
+        try {
+            // TODO run on SwingWorker or use ZK Background
             zookeeperSync.create(path);
         } catch (Exception e) {
+            synchronized (createdPaths) {
+                createdPaths.remove(path);
+            }
             logger.error("create {} failed [{}]", path, e);
         }
     }
@@ -643,6 +671,7 @@ public final class ZookeeperPanel extends JPanel {
             try {
                 rootNode.removeAllChildren();
                 treeModel.reload();
+                // TODO run on SwingWorker or use ZK Background
                 zookeeperSync.watch();
             } catch (Exception e) {
                 logger.error("Failed to execute ZookeeperSync watch [{}]", e);
