@@ -5,9 +5,12 @@ import com.kostbot.zoodirector.helpers.DynamicTable;
 import org.jdesktop.swingx.JXTable;
 
 import javax.swing.*;
-import javax.swing.table.*;
+import javax.swing.table.DefaultTableModel;
 import java.awt.*;
-import java.awt.event.*;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -52,7 +55,7 @@ public class ZooDirectorConfigEditor extends JDialog {
         }
     }
 
-    public ZooDirectorConfigEditor(JFrame parent, ZooDirectorConfig config) {
+    public ZooDirectorConfigEditor(JFrame parent, ZooDirectorConfig config, final String connectionString) {
         super(parent, "Configuration", true);
         setDefaultCloseOperation(WindowConstants.DISPOSE_ON_CLOSE);
 
@@ -114,6 +117,23 @@ public class ZooDirectorConfigEditor extends JDialog {
         c.fill = GridBagConstraints.NONE;
         c.anchor = GridBagConstraints.LINE_END;
         c.gridy += 1;
+
+        JPanel addButtonPanel = new JPanel();
+
+        JButton addCurrentButton = new JButton("Add Current");
+        addButtonPanel.add(addCurrentButton);
+
+        if (Strings.isNullOrEmpty(connectionString)) {
+            addCurrentButton.setEnabled(false);
+        } else {
+            addCurrentButton.addActionListener(new ActionListener() {
+                @Override
+                public void actionPerformed(ActionEvent e) {
+                    addAlias(new String[]{connectionString, connectionString});
+                }
+            });
+        }
+
         JButton addAliasButton = new JButton("Add");
         addAliasButton.addActionListener(new ActionListener() {
             @Override
@@ -121,7 +141,9 @@ public class ZooDirectorConfigEditor extends JDialog {
                 addAlias();
             }
         });
-        mainPanel.add(addAliasButton, c);
+        addButtonPanel.add(addAliasButton);
+
+        mainPanel.add(addButtonPanel, c);
 
         c.anchor = GridBagConstraints.LINE_START;
         c.gridy += 1;
@@ -156,7 +178,11 @@ public class ZooDirectorConfigEditor extends JDialog {
     }
 
     private void addAlias() {
-        aliasTableModel.addRow(new String[]{"", "<double click to edit>"});
+        addAlias(new String[]{"", "<double click to edit>"});
+    }
+
+    private void addAlias(String[] aliasEntry) {
+        aliasTableModel.addRow(aliasEntry);
     }
 
     private void save() {

@@ -14,8 +14,12 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.swing.*;
-import javax.swing.event.*;
-import javax.swing.tree.*;
+import javax.swing.event.TreeSelectionEvent;
+import javax.swing.event.TreeSelectionListener;
+import javax.swing.tree.DefaultMutableTreeNode;
+import javax.swing.tree.DefaultTreeModel;
+import javax.swing.tree.TreePath;
+import javax.swing.tree.TreeSelectionModel;
 import java.awt.*;
 import java.awt.event.*;
 import java.util.Enumeration;
@@ -85,6 +89,15 @@ public final class ZookeeperPanel extends JPanel {
     }
 
     /**
+     * Return the currently set connection string.
+     *
+     * @return connection string
+     */
+    public String getConnectionString() {
+        return connectionString;
+    }
+
+    /**
      * Panel used for editing specified zookeeper node
      *
      * @param connectionString      zookeeper connection string
@@ -136,7 +149,7 @@ public final class ZookeeperPanel extends JPanel {
         org.apache.log4j.Logger.getRootLogger().addAppender(new AppenderSkeleton() {
             @Override
             protected void append(LoggingEvent loggingEvent) {
-                final Layout layout = new PatternLayout("%-5p : %m%n");
+                final Layout layout = new PatternLayout("%d{yyyy-MM-dd HH:mm:ss.SSS} %-5p : %m%n");
                 String line = layout.format(loggingEvent);
                 logTextArea.append(line);
                 lastLogTextField.setText(line);
@@ -359,9 +372,12 @@ public final class ZookeeperPanel extends JPanel {
                                 offline = false;
                                 logger.info("connection to {} has been reestablished", ZookeeperPanel.this.connectionString);
                             default:
-                                load();
-                                tree.expandPath(getTreePath(rootNode));
-                                tree.setSelectionRow(0);
+                                SwingUtilities.invokeLater(new Runnable() {
+                                    @Override
+                                    public void run() {
+                                        load();
+                                    }
+                                });
                         }
                     }
                 });
@@ -519,12 +535,9 @@ public final class ZookeeperPanel extends JPanel {
     private void pruneNode(DefaultMutableTreeNode node) {
         String path = getZookeeperNodePath(node);
 
-        int option = JOptionPane.showConfirmDialog(
-                SwingUtilities.getRoot(this),
-                "Are you sure you want to prune this nodes and all its lonely ancestors?",
+        int option = showYesNoDialog(
                 "Prune Node: " + path,
-                JOptionPane.YES_NO_OPTION,
-                JOptionPane.QUESTION_MESSAGE);
+                "Are you sure you want to prune this nodes and all its lonely ancestors?");
 
         if (option != JOptionPane.YES_OPTION) {
             return;
@@ -546,12 +559,9 @@ public final class ZookeeperPanel extends JPanel {
     private void trimNode(DefaultMutableTreeNode node) {
         String path = getZookeeperNodePath(node);
 
-        int option = JOptionPane.showConfirmDialog(
-                SwingUtilities.getRoot(this),
-                "Are you sure you want to delete this nodes children and all its lovely descendants?",
+        int option = showYesNoDialog(
                 "Delete Children: " + path,
-                JOptionPane.YES_NO_OPTION,
-                JOptionPane.QUESTION_MESSAGE);
+                "Are you sure you want to delete this nodes children and all its lovely descendants?");
 
         if (option != JOptionPane.YES_OPTION) {
             return;
@@ -578,12 +588,9 @@ public final class ZookeeperPanel extends JPanel {
         String path = getZookeeperNodePath(node);
 
         if (!skipConfirmation) {
-            int option = JOptionPane.showConfirmDialog(
-                    SwingUtilities.getRoot(this),
-                    "Are you sure you want to delete this node" + (node.getChildCount() > 0 ? " and all of its lovely children?" : "?"),
+            int option = showYesNoDialog(
                     "Delete: " + node,
-                    JOptionPane.YES_NO_OPTION,
-                    JOptionPane.QUESTION_MESSAGE);
+                    "Are you sure you want to delete this node" + (node.getChildCount() > 0 ? " and all of its lovely children?" : "?"));
 
             if (option != JOptionPane.YES_OPTION) {
                 return;
@@ -668,18 +675,31 @@ public final class ZookeeperPanel extends JPanel {
         if (!offline) {
             logger.info("loading zookeeper nodes");
             mainPanel.removeAll();
-            try {
-                rootNode.removeAllChildren();
-                treeModel.reload();
-                // TODO run on SwingWorker or use ZK Background
-                zookeeperSync.watch();
-            } catch (Exception e) {
-                logger.error("Failed to execute ZookeeperSync watch [{}]", e);
-            }
+            rootNode.removeAllChildren();
+            treeModel.reload();
+            SwingWorker<Void, Void> swingWorker = new SwingWorker<Void, Void>() {
+                @Override
+                protected Void doInBackground() {
+                    try {
+                        zookeeperSync.watch();
+                    } catch (Exception e) {
+                        logger.error("Failed to execute ZookeeperSync watch [{}]", e);
+                    }
+                    return null;
+                }
+
+                @Override
+                protected void done() {
+                    logger.info("loading zookeeper nodes complete");
+                }
+            };
+            swingWorker.execute();
             mainPanel.add(splitPane, BorderLayout.CENTER);
             refresh();
             tree.grabFocus();
         }
+        tree.expandPath(getTreePath(rootNode));
+        tree.setSelectionRow(0);
     }
 
     /**
@@ -816,5 +836,19 @@ public final class ZookeeperPanel extends JPanel {
         public String toString() {
             return name;
         }
+    }
+
+    private static final Object[] YES_NO = {"Yes", "No"};
+
+    int showYesNoDialog(String title, String message) {
+        return JOptionPane.showOptionDialog(
+                SwingUtilities.getRoot(this),
+                message,
+                title,
+                JOptionPane.YES_NO_OPTION,
+                JOptionPane.QUESTION_MESSAGE,
+                null,
+                YES_NO,
+                JOptionPane.YES_OPTION);
     }
 }

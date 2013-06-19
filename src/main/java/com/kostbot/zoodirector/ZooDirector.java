@@ -6,7 +6,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.swing.*;
-import javax.swing.event.*;
+import javax.swing.event.HyperlinkEvent;
+import javax.swing.event.HyperlinkListener;
 import java.awt.*;
 import java.awt.event.*;
 import java.io.File;
@@ -17,6 +18,7 @@ import java.util.Map;
 public class ZooDirector extends JFrame {
     private static final Logger logger = LoggerFactory.getLogger(ZooDirector.class);
 
+    private static final String TITLE = "zoodirector";
     private static final String WIKI_PATH_URL = "https://github.com/kostbot/zoodirector/wiki";
     public static final Font FONT_MONOSPACED = new Font("Monospaced", Font.PLAIN, 11);
     public static final String DATE_FORMAT = "yyyy-MM-dd HH:mm:ss.SSS";
@@ -28,7 +30,7 @@ public class ZooDirector extends JFrame {
     private JMenu connectMenu;
 
     private ZooDirector(ZooDirectorConfig config) {
-        super("zoodirector");
+        super(TITLE);
 
         this.config = config;
 
@@ -100,6 +102,7 @@ public class ZooDirector extends JFrame {
             zookeeperPanel.close();
         }
         zookeeperPanel = new ZookeeperPanel(connectionString, connectionRetryPeriod);
+        setTitle(TITLE + " (" + connectionString + ")");
         getContentPane().add(zookeeperPanel);
         zookeeperPanel.connect();
     }
@@ -173,7 +176,7 @@ public class ZooDirector extends JFrame {
         editSettingsMenuItem.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
-                ZooDirectorConfigEditor configEditor = new ZooDirectorConfigEditor((JFrame) SwingUtilities.getRoot(zookeeperPanel), config);
+                ZooDirectorConfigEditor configEditor = new ZooDirectorConfigEditor((JFrame) SwingUtilities.getRoot(zookeeperPanel), config, zookeeperPanel == null ? null : zookeeperPanel.getConnectionString());
                 configEditor.setLocationRelativeTo(SwingUtilities.getRoot(zookeeperPanel));
                 configEditor.setVisible(true);
 

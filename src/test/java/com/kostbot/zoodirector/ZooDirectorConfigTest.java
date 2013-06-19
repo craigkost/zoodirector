@@ -6,7 +6,6 @@ import org.junit.Before;
 import org.junit.Test;
 
 import java.io.File;
-import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -17,8 +16,8 @@ public class ZooDirectorConfigTest {
     private String configFilePath;
 
     @Before
-    public void before() throws IOException {
-        configFilePath = System.getProperty("java.io.tmpdir") + ".zoodirector-" + RandomStringUtils.randomAlphanumeric(15) + ".xml";
+    public void before() {
+        configFilePath = System.getProperty("java.io.tmpdir") + File.separator + ".zoodirector-" + RandomStringUtils.randomAlphanumeric(15) + ".xml";
 
         new File(configFilePath).deleteOnExit();
     }
