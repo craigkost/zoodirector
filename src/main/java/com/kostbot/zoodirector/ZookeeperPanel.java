@@ -61,6 +61,7 @@ public final class ZookeeperPanel extends JPanel {
     private final JMenuItem addWatchMenuItem;
     private final JMenuItem removeWatchMenuItem;
 
+    private final JTabbedPane tabbedPane;
     private final ZookeeperNodeEditPanel nodeEditPanel;
     private final ZookeeperWatchPanel watchPanel;
 
@@ -337,11 +338,11 @@ public final class ZookeeperPanel extends JPanel {
             }
         });
 
-        JTabbedPane tabbedPane = new JTabbedPane();
+        tabbedPane = new JTabbedPane();
         nodeEditPanel = new ZookeeperNodeEditPanel();
         tabbedPane.add(nodeEditPanel, "View/Edit");
 
-        watchPanel = new ZookeeperWatchPanel();
+        watchPanel = new ZookeeperWatchPanel(this);
         tabbedPane.add(watchPanel, "Watches");
 
         splitPane = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, treePane, tabbedPane);
@@ -439,6 +440,63 @@ public final class ZookeeperPanel extends JPanel {
         return (DefaultMutableTreeNode) currentSelection.getLastPathComponent();
     }
 
+    protected DefaultMutableTreeNode getNodeFromPath(String path) {
+        DefaultMutableTreeNode parent = rootNode;
+
+        if (path.equals("/"))
+            return parent;
+
+        String[] segments = path.substring(1).split("/");
+
+        boolean foundParent = true;
+
+        for (int i = 0; foundParent && i < segments.length; ++i) {
+
+            String segment = segments[i];
+
+            foundParent = false;
+
+            for (int j = 0; j < parent.getChildCount(); ++j) {
+                DefaultMutableTreeNode child = (DefaultMutableTreeNode) parent.getChildAt(j);
+                if (segment.equals(child.toString())) {
+
+                    // If we have found the path, remove it.
+                    if (i == segments.length - 1) {
+                        return child;
+                    }
+
+                    // Keep searching down path.
+                    foundParent = true;
+                    parent = child;
+                    break;
+                }
+            }
+        }
+
+        return null;
+    }
+
+    private void selectTreeNode(DefaultMutableTreeNode node) {
+        TreePath treePath = getTreePath(node);
+        tree.setSelectionPath(treePath);
+        tree.scrollPathToVisible(treePath);
+    }
+
+    public DefaultMutableTreeNode selectTreeNode(String path) {
+        DefaultMutableTreeNode target = getNodeFromPath(path);
+        if (target != null) {
+            selectTreeNode(target);
+        }
+        return target;
+    }
+
+    public void viewEditTreeNode(String path) {
+        DefaultMutableTreeNode target = selectTreeNode(path);
+        if (target != null) {
+            tabbedPane.setSelectedIndex(0);
+        }
+    }
+
     /**
      * Add the given path as a node on the tree in sorted order.
      *
@@ -483,9 +541,7 @@ public final class ZookeeperPanel extends JPanel {
         }
 
         if (select) {
-            TreePath treePath = getTreePath(parent);
-            tree.setSelectionPath(treePath);
-            tree.scrollPathToVisible(treePath);
+            selectTreeNode(parent);
         }
     }
 
@@ -495,35 +551,9 @@ public final class ZookeeperPanel extends JPanel {
      * @param path
      */
     protected void removeNodeFromTree(String path) {
-        DefaultMutableTreeNode parent = rootNode;
-
-        String[] segments = path.substring(1).split("/");
-
-        boolean foundParent = true;
-
-        for (int i = 0; foundParent && i < segments.length; ++i) {
-
-            String segment = segments[i];
-
-            foundParent = false;
-
-            for (int j = 0; j < parent.getChildCount(); ++j) {
-                DefaultMutableTreeNode child = (DefaultMutableTreeNode) parent.getChildAt(j);
-                if (segment.equals(child.toString())) {
-
-                    // If we have found the path, remove it.
-                    if (i == segments.length - 1) {
-                        treeModel.removeNodeFromParent(child);
-                        return;
-                    }
-
-                    // Keep searching down path.
-                    foundParent = true;
-                    parent = child;
-                    break;
-                }
-            }
-        }
+        DefaultMutableTreeNode target = getNodeFromPath(path);
+        if (target != null && target != rootNode)
+            treeModel.removeNodeFromParent(target);
     }
 
     /**

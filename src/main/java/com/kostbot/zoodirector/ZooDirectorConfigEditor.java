@@ -31,7 +31,7 @@ public class ZooDirectorConfigEditor extends JDialog {
         AliasPopupMenu() {
             super();
 
-            removeAliasMenuItem = new JMenuItem("Remove");
+            removeAliasMenuItem = new JMenuItem("remove");
             removeAliasMenuItem.addActionListener(new ActionListener() {
                 @Override
                 public void actionPerformed(ActionEvent e) {
@@ -40,7 +40,7 @@ public class ZooDirectorConfigEditor extends JDialog {
             });
             add(removeAliasMenuItem);
 
-            addAliasMenuItem = new JMenuItem("Add");
+            addAliasMenuItem = new JMenuItem("add");
             addAliasMenuItem.addActionListener(new ActionListener() {
                 @Override
                 public void actionPerformed(ActionEvent e) {

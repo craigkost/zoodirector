@@ -10,7 +10,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.swing.*;
-import javax.swing.table.*;
+import javax.swing.table.DefaultTableModel;
 import java.awt.*;
 import java.awt.event.*;
 import java.util.HashSet;
@@ -34,7 +34,9 @@ public class ZookeeperWatchPanel extends JPanel {
     private final DefaultTableModel tableModel;
     private final JXTable watchTable;
 
-    public ZookeeperWatchPanel() {
+    private int clickedRow = -1;
+
+    public ZookeeperWatchPanel(final ZookeeperPanel parent) {
         watches = new HashSet<String>(10);
 
         setLayout(new BorderLayout());
@@ -91,7 +93,7 @@ public class ZookeeperWatchPanel extends JPanel {
 
         final JPopupMenu watchPatternTableMenu = new JPopupMenu();
 
-        JMenuItem removePatternWatchMenuItem = new JMenuItem("Remove");
+        JMenuItem removePatternWatchMenuItem = new JMenuItem("remove watch pattern");
         removePatternWatchMenuItem.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
@@ -130,7 +132,29 @@ public class ZookeeperWatchPanel extends JPanel {
 
         final JPopupMenu tableMenu = new JPopupMenu();
 
-        JMenuItem removeWatchMenuItem = new JMenuItem("Remove");
+        JMenuItem goToWatchMenuItem = new JMenuItem("go to ...");
+        goToWatchMenuItem.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                String path = getPath(clickedRow);
+                parent.selectTreeNode(path);
+            }
+        });
+        tableMenu.add(goToWatchMenuItem);
+
+        JMenuItem viewEditWatchMenuItem = new JMenuItem("view/edit");
+        viewEditWatchMenuItem.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                String path = getPath(clickedRow);
+                parent.viewEditTreeNode(path);
+            }
+        });
+        tableMenu.add(viewEditWatchMenuItem);
+
+        tableMenu.addSeparator();
+
+        JMenuItem removeWatchMenuItem = new JMenuItem("remove watch");
         removeWatchMenuItem.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
@@ -150,7 +174,8 @@ public class ZookeeperWatchPanel extends JPanel {
             public void mouseClicked(MouseEvent e) {
                 if (e.getButton() == MouseEvent.BUTTON3) {
                     // Show context menu if clicking selected row
-                    if (watchTable.isRowSelected(watchTable.rowAtPoint(e.getPoint()))) {
+                    clickedRow = watchTable.rowAtPoint(e.getPoint());
+                    if (watchTable.isRowSelected(clickedRow)) {
                         tableMenu.show(watchTable, e.getX(), e.getY());
                     }
                 }
@@ -163,13 +188,17 @@ public class ZookeeperWatchPanel extends JPanel {
         add(splitPane, BorderLayout.CENTER);
     }
 
-    private void setData(int row, Stat stat, byte[] data) {
+    synchronized private void setData(int row, Stat stat, byte[] data) {
         tableModel.setValueAt(stat == null ? null : (stat.getEphemeralOwner() != 0), row, 1);
         tableModel.setValueAt(stat == null ? null : new LocalDateTime(stat.getCtime()), row, 2);
         tableModel.setValueAt(stat == null ? null : new LocalDateTime(stat.getMtime()), row, 3);
         tableModel.setValueAt(stat == null ? null : stat.getVersion(), row, 4);
         tableModel.setValueAt(data == null ? null : new String(data), row, 5);
-        watchTable.packAll();
+        tableModel.fireTableRowsUpdated(row, row);
+    }
+
+    private String getPath(int row) {
+        return (String) tableModel.getValueAt(watchTable.convertRowIndexToModel(row), 0);
     }
 
     private int getRow(String path) {
@@ -222,7 +251,7 @@ public class ZookeeperWatchPanel extends JPanel {
     synchronized public boolean removeWatch(String path) {
         if (watches.remove(path)) {
             tableModel.removeRow(getRow(path));
-            logger.info("{} watch removed", path);
+            logger.debug("{} watch removed", path);
             return true;
         }
         return false;
@@ -234,7 +263,7 @@ public class ZookeeperWatchPanel extends JPanel {
 
     synchronized public void addWatch(String path) {
         if (!watches.contains(path)) {
-            logger.info("{} watch added", path);
+            logger.debug("{} watch added", path);
             watches.add(path);
             tableModel.addRow(new Object[]{path, null, null, null, null, null});
             updateData(path, false);
@@ -263,6 +292,7 @@ public class ZookeeperWatchPanel extends JPanel {
                     return;
                 }
             }
+            logger.debug("{} watch pattern added", watchPattern);
             patternTableModel.addRow(new Object[]{pattern});
             patternWatchTable.packAll();
             for (String node : zookeeperSync.getNodes()) {
