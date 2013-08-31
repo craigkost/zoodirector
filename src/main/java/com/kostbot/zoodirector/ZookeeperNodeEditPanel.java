@@ -125,7 +125,7 @@ public class ZookeeperNodeEditPanel extends JPanel {
 
                 switch (e.getKeyCode()) {
                     case KeyEvent.VK_F5:
-                        setZookeeperPath(path);
+                        reload();
                         break;
                     case KeyEvent.VK_S:
                         // Ctrl + S
@@ -170,7 +170,7 @@ public class ZookeeperNodeEditPanel extends JPanel {
         reloadButton.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
-                setZookeeperPath(path);
+                reload();
             }
         });
         buttonPanel.add(reloadButton);
@@ -195,7 +195,7 @@ public class ZookeeperNodeEditPanel extends JPanel {
             }
         });
         buttonPanel.add(saveButton);
-        setZookeeperPath(null);
+        setZookeeperPath(null, true);
     }
 
     /**
@@ -224,7 +224,10 @@ public class ZookeeperNodeEditPanel extends JPanel {
             executeSwingWorker(new SaveDataWorker(zookeeperSync, path, Integer.parseInt(versionTextField.getText()), dataTextArea.getText().getBytes(), new SaveDataWorker.Callback() {
                 @Override
                 public void onComplete(String path) {
-                    setZookeeperPath(path);
+                    if (ZookeeperNodeEditPanel.this.path != null &&
+                            ZookeeperNodeEditPanel.this.path.equals(path)) {
+                        reload();
+                    }
                 }
 
                 @Override
@@ -251,16 +254,37 @@ public class ZookeeperNodeEditPanel extends JPanel {
     }
 
     /**
-     * Update the edit panel with values for the given zookeeper path.
+     * Reload the edit panel content from zookeeper.
+     */
+    private void reload() {
+        setZookeeperPath(this.path, false);
+    }
+
+    /**
+     * Update the edit panel with values for the given zookeeper path and clears the undo history.
      *
      * @param path node path to edit
+     * @see #setZookeeperPath(String, boolean)
      */
     public void setZookeeperPath(String path) {
+        setZookeeperPath(path, true);
+    }
+
+    /**
+     * Update the edit panel with values for the given zookeeper path.
+     *
+     * @param path             node path to edit
+     * @param clearUndoManager clear undo events if setting new path
+     */
+    private void setZookeeperPath(String path, final boolean clearUndoManager) {
         this.path = path;
         executeSwingWorker(new LoadDataWorker(zookeeperSync, path, new LoadDataWorker.Callback() {
             @Override
             public void onComplete(String path, Stat stat, byte[] data) {
                 setData(path, stat, data);
+                if (clearUndoManager) {
+                    ZookeeperNodeEditPanel.this.undoManager.discardAllEdits();
+                }
             }
         }));
     }
