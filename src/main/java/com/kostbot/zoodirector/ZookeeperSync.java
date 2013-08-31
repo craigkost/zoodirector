@@ -334,8 +334,8 @@ public class ZookeeperSync {
      * @param data
      * @throws Exception
      */
-    public void setData(String path, byte[] data) throws Exception {
-        client.setData().forPath(path, data);
+    public void setData(String path, int version, byte[] data) throws Exception {
+        client.setData().withVersion(version).forPath(path, data);
     }
 
     /**

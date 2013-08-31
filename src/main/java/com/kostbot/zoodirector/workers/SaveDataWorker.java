@@ -14,8 +14,11 @@ public class SaveDataWorker extends SwingWorker<Void, Void> {
 
     private final ZookeeperSync zookeeperSync;
     private final String path;
+    private final int version;
     private final byte[] data;
     private final Callback callback;
+
+    private boolean success;
 
     /**
      * Create a SaveDataWorker for saving data to zookeeper. On completion callback.execute() is called on the EDT. If
@@ -26,15 +29,18 @@ public class SaveDataWorker extends SwingWorker<Void, Void> {
      * @param data
      * @param callback
      */
-    public SaveDataWorker(ZookeeperSync zookeeperSync, String path, byte[] data, Callback callback) {
+    public SaveDataWorker(ZookeeperSync zookeeperSync, String path, int version, byte[] data, Callback callback) {
         this.zookeeperSync = zookeeperSync;
         this.path = path;
+        this.version = version;
         this.data = data;
         this.callback = callback;
     }
 
     public interface Callback {
-        void execute(String path);
+        void onComplete(String path);
+
+        void onFailure(String path);
     }
 
     @Override
@@ -42,7 +48,8 @@ public class SaveDataWorker extends SwingWorker<Void, Void> {
         logger.debug("save {} requested", path);
 
         try {
-            zookeeperSync.setData(path, data);
+            zookeeperSync.setData(path, version, data);
+            success = true;
         } catch (Exception e) {
             logger.error("save {} failed [{}]", path, e.getMessage());
         }
@@ -56,7 +63,11 @@ public class SaveDataWorker extends SwingWorker<Void, Void> {
         } else {
             logger.debug("save {} complete", path);
             if (callback != null) {
-                callback.execute(path);
+                if (success) {
+                    callback.onComplete(path);
+                } else {
+                    callback.onFailure(path);
+                }
             }
         }
     }

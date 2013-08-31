@@ -228,7 +228,7 @@ public class ZookeeperWatchPanel extends JPanel {
                 logger.info("[watch] {} updated", path);
                 new LoadDataWorker(zookeeperSync, path, new LoadDataWorker.Callback() {
                     @Override
-                    public void execute(String path, final Stat stat, final byte[] data) {
+                    public void onComplete(String path, final Stat stat, final byte[] data) {
                         if (stat == null) {
                             logger.error("[watch] {} update failed", path);
                         }

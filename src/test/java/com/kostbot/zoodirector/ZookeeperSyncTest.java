@@ -44,11 +44,15 @@ public class ZookeeperSyncTest extends ZookeeperTestBase {
 
         String path = "/test/all/parent/paths/are/created";
         String data = "data!";
+        String data2 = "data2!";
 
         zookeeperSync.create(path);
-        zookeeperSync.setData(path, data.getBytes());
+        zookeeperSync.setData(path, 0, data.getBytes());
 
         Assert.assertEquals(data, new String(client.getData().forPath(path)));
+
+        zookeeperSync.setData(path, 1, data2.getBytes());
+        Assert.assertEquals(data2, new String(client.getData().forPath(path)));
     }
 
     @Test
@@ -59,7 +63,7 @@ public class ZookeeperSyncTest extends ZookeeperTestBase {
         String data = "data!";
 
         zookeeperSync.create(path);
-        zookeeperSync.setData(path, data.getBytes());
+        zookeeperSync.setData(path, 0, data.getBytes());
 
         Assert.assertEquals(data, new String(zookeeperSync.getData(path)));
     }
@@ -228,8 +232,8 @@ public class ZookeeperSyncTest extends ZookeeperTestBase {
         receivedEventList.clear();
 
         // TODO there may be a problem with extremely fast same node update notifications being lost
-        zookeeperSync.setData("/test/all/parent/events", "updated".getBytes());
-        zookeeperSync.setData("/test/all/parent/events", "updated again!".getBytes());
+        zookeeperSync.setData("/test/all/parent/events", 0, "updated".getBytes());
+        zookeeperSync.setData("/test/all/parent/events", 1, "updated again!".getBytes());
 
         // Wait a little while to ensure we receive events.
         ConditionRetry.checkCondition(new ConditionRetry.Condition() {

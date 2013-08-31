@@ -7,8 +7,12 @@ import org.apache.zookeeper.data.Stat;
 import org.joda.time.DateTime;
 
 import javax.swing.*;
+import javax.swing.undo.UndoManager;
 import java.awt.*;
-import java.awt.event.*;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
+import java.awt.event.KeyAdapter;
+import java.awt.event.KeyEvent;
 
 /**
  * Panel used for viewing and editing zookeeper nodes.
@@ -33,12 +37,16 @@ public class ZookeeperNodeEditPanel extends JPanel {
     private final JTextField versionTextField;
     private final JTextArea dataTextArea;
 
+    private final UndoManager undoManager;
+
     private final JButton saveButton;
     private final JButton clearButton;
     private final JButton reloadButton;
 
     ZookeeperNodeEditPanel() {
         super();
+
+        undoManager = new UndoManager();
 
         this.setLayout(new GridBagLayout());
 
@@ -125,9 +133,27 @@ public class ZookeeperNodeEditPanel extends JPanel {
                             save();
                         }
                         break;
+                    case KeyEvent.VK_Z:
+                        // Ctrl + Z
+                        if (e.isControlDown()) {
+                            if (undoManager.canUndo()) {
+                                undoManager.undo();
+                            }
+                        }
+                        break;
+                    case KeyEvent.VK_R:
+                        // Ctrl + R
+                        if (e.isControlDown()) {
+                            if (undoManager.canRedo()) {
+                                undoManager.redo();
+                            }
+                        }
+                        break;
+
                 }
             }
         });
+        dataTextArea.getDocument().addUndoableEditListener(undoManager);
         this.add(new JScrollPane(dataTextArea), c);
 
         c.fill = GridBagConstraints.NONE;
@@ -195,10 +221,15 @@ public class ZookeeperNodeEditPanel extends JPanel {
      */
     private void save() {
         if (isDataUpdated()) {
-            executeSwingWorker(new SaveDataWorker(zookeeperSync, path, dataTextArea.getText().getBytes(), new SaveDataWorker.Callback() {
+            executeSwingWorker(new SaveDataWorker(zookeeperSync, path, Integer.parseInt(versionTextField.getText()), dataTextArea.getText().getBytes(), new SaveDataWorker.Callback() {
                 @Override
-                public void execute(String path) {
+                public void onComplete(String path) {
                     setZookeeperPath(path);
+                }
+
+                @Override
+                public void onFailure(String path) {
+                    // TODO popup error? with force save option
                 }
             }));
         }
@@ -228,7 +259,7 @@ public class ZookeeperNodeEditPanel extends JPanel {
         this.path = path;
         executeSwingWorker(new LoadDataWorker(zookeeperSync, path, new LoadDataWorker.Callback() {
             @Override
-            public void execute(String path, Stat stat, byte[] data) {
+            public void onComplete(String path, Stat stat, byte[] data) {
                 setData(path, stat, data);
             }
         }));

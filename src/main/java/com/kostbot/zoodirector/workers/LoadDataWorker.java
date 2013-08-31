@@ -22,7 +22,7 @@ public class LoadDataWorker extends SwingWorker<Void, Void> {
     private byte[] data;
 
     public interface Callback {
-        void execute(String path, Stat stat, byte[] data);
+        void onComplete(String path, Stat stat, byte[] data);
     }
 
     /**
@@ -68,7 +68,7 @@ public class LoadDataWorker extends SwingWorker<Void, Void> {
         } else {
             logger.debug("load {} complete", path);
             if (callback != null) {
-                callback.execute(path, stat, data);
+                callback.onComplete(path, stat, data);
             }
         }
     }
