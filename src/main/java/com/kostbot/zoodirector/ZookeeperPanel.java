@@ -14,12 +14,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.swing.*;
-import javax.swing.event.TreeSelectionEvent;
-import javax.swing.event.TreeSelectionListener;
-import javax.swing.tree.DefaultMutableTreeNode;
-import javax.swing.tree.DefaultTreeModel;
-import javax.swing.tree.TreePath;
-import javax.swing.tree.TreeSelectionModel;
+import javax.swing.event.*;
+import javax.swing.tree.*;
 import java.awt.*;
 import java.awt.event.*;
 import java.util.Enumeration;
@@ -52,6 +48,8 @@ public final class ZookeeperPanel extends JPanel {
     protected final DefaultTreeModel treeModel;
     protected final JTree tree;
     protected final DefaultMutableTreeNode rootNode;
+
+    private final JPanel goToPanel;
 
     private final JMenuItem addNodeMenuItem;
     private final JMenuItem deleteNodeMenuItem;
@@ -167,6 +165,30 @@ public final class ZookeeperPanel extends JPanel {
         });
 
         // Zookeeper View UI Setup
+
+        // Go to panel
+        final JTextField goToTextField = new JTextField();
+        JButton goToButton = new JButton("GO");
+        goToPanel = new JPanel(new BorderLayout());
+        goToPanel.add(goToTextField, BorderLayout.CENTER);
+        goToPanel.add(goToButton, BorderLayout.EAST);
+
+        goToTextField.setToolTipText("Enter the path you wish to go to");
+        goToTextField.addKeyListener(new KeyAdapter() {
+            @Override
+            public void keyPressed(KeyEvent e) {
+                if (e.getKeyCode() == KeyEvent.VK_ENTER) {
+                    viewEditTreeNode(goToTextField.getText());
+                }
+            }
+        });
+
+        goToButton.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                viewEditTreeNode(goToTextField.getText());
+            }
+        });
 
         rootNode = new DefaultMutableTreeNode(ZookeeperNode.root);
         treeModel = new DefaultTreeModel(rootNode);
@@ -287,7 +309,9 @@ public final class ZookeeperPanel extends JPanel {
             @Override
             public void valueChanged(TreeSelectionEvent event) {
                 if (!offline) {
-                    nodeEditPanel.setZookeeperPath(getZookeeperNodePath(getSelectedNode()));
+                    String path = getZookeeperNodePath(getSelectedNode());
+                    nodeEditPanel.setZookeeperPath(path);
+                    goToTextField.setText(path);
                 }
             }
         });
@@ -443,6 +467,12 @@ public final class ZookeeperPanel extends JPanel {
     protected DefaultMutableTreeNode getNodeFromPath(String path) {
         DefaultMutableTreeNode parent = rootNode;
 
+        path = path.trim();
+
+        if (!path.startsWith("/")) {
+            return null;
+        }
+
         if (path.equals("/"))
             return parent;
 
@@ -492,8 +522,11 @@ public final class ZookeeperPanel extends JPanel {
 
     public void viewEditTreeNode(String path) {
         DefaultMutableTreeNode target = selectTreeNode(path);
-        if (target != null) {
+        if (target == null) {
+            logger.error("go to {} failed [path does not exist]", path);
+        } else {
             tabbedPane.setSelectedIndex(0);
+            tree.grabFocus();
         }
     }
 
@@ -724,6 +757,7 @@ public final class ZookeeperPanel extends JPanel {
                 }
             };
             swingWorker.execute();
+            mainPanel.add(goToPanel, BorderLayout.NORTH);
             mainPanel.add(splitPane, BorderLayout.CENTER);
             refresh();
             tree.grabFocus();
