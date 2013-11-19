@@ -16,8 +16,6 @@ import java.awt.event.KeyEvent;
 
 /**
  * Panel used for viewing and editing zookeeper nodes.
- *
- * @author Craig Kost
  */
 public class ZookeeperNodeEditPanel extends JPanel {
     private static final String PATH = "Path";

@@ -9,9 +9,6 @@ import org.junit.Before;
 
 import java.io.IOException;
 
-/**
- * @author Craig Kost
- */
 public class ZookeeperTestBase {
     CuratorFramework client;
     protected TestingServer server;

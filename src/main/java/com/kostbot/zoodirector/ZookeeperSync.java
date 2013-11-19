@@ -18,8 +18,6 @@ import java.util.Set;
  * Class used to synchronize all node created, deleted, child changed and updated events for a Zookeeper cluster. It
  * reduces all of these Zookeeper events into 3 simple cases node creation, node deletion and node update for all
  * nodes in a Zookeeper cluster.
- *
- * @author Craig Kost
  */
 public class ZookeeperSync {
     private static final Logger logger = LoggerFactory.getLogger(ZookeeperSync.class);

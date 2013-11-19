@@ -3,9 +3,6 @@ package com.kostbot.zoodirector;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-/**
- * @author Craig Kost
- */
 public class ConditionRetry {
     private static final Logger logger = LoggerFactory.getLogger(ConditionRetry.class);
 

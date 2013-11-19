@@ -7,9 +7,6 @@ import org.slf4j.LoggerFactory;
 
 import javax.swing.*;
 
-/**
- * @author Craig Kost
- */
 public class LoadDataWorker extends SwingWorker<Void, Void> {
     private static final Logger logger = LoggerFactory.getLogger(LoadDataWorker.class);
 

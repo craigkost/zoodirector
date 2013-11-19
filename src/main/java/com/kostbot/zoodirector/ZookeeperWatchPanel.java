@@ -18,9 +18,6 @@ import java.util.Set;
 import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
 
-/**
- * @author Craig Kost
- */
 public class ZookeeperWatchPanel extends JPanel {
     private static final Logger logger = LoggerFactory.getLogger(ZookeeperWatchPanel.class);
 

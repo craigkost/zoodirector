@@ -6,9 +6,6 @@ import org.junit.Test;
 import javax.swing.tree.*;
 import java.util.Enumeration;
 
-/**
- * @author Craig Kost
- */
 public class ZookeeperPanelTest {
 
     /**

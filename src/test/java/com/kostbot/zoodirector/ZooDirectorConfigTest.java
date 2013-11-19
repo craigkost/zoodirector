@@ -9,9 +9,6 @@ import java.io.File;
 import java.util.HashMap;
 import java.util.Map;
 
-/**
- * @author Craig Kost
- */
 public class ZooDirectorConfigTest {
     private String configFilePath;
 

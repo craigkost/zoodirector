@@ -9,9 +9,6 @@ import java.util.Collections;
 import java.util.Set;
 import java.util.TreeSet;
 
-/**
- * @author Craig Kost
- */
 public class DynamicTable {
     private static final Logger logger = LoggerFactory.getLogger(DynamicTable.class);
 

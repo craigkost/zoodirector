@@ -14,9 +14,6 @@ import java.awt.event.MouseEvent;
 import java.util.HashMap;
 import java.util.Map;
 
-/**
- * @author Craig Kost
- */
 public class ZooDirectorConfigEditor extends JDialog {
 
     private final ZooDirectorConfig config;

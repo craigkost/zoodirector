@@ -7,9 +7,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 
-/**
- * @author Craig Kost
- */
 public class ZookeeperSyncTest extends ZookeeperTestBase {
 
     private void assertEvent(ZookeeperSync.Event receivedEvent, ZookeeperSync.Event.Type type, String path) {

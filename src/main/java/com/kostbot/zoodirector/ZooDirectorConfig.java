@@ -12,9 +12,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
 
-/**
- * @author Craig Kost
- */
 public class ZooDirectorConfig {
     private static final Logger logger = LoggerFactory.getLogger(ZooDirectorConfig.class);
 
