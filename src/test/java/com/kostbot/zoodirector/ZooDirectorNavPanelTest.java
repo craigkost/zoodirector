@@ -1,12 +1,14 @@
 package com.kostbot.zoodirector;
 
+import com.kostbot.zoodirector.ZooDirectorNavPanel;
+import com.kostbot.zoodirector.ZookeeperPanel;
 import org.junit.Assert;
 import org.junit.Test;
 
 import javax.swing.tree.*;
 import java.util.Enumeration;
 
-public class ZookeeperPanelTest {
+public class ZooDirectorNavPanelTest {
 
     /**
      * Test that the tree has exactly the expected node count, excluding the root node.
@@ -63,7 +65,7 @@ public class ZookeeperPanelTest {
                 if (segment.equals(child.toString())) {
                     node = (DefaultMutableTreeNode) parent.getChildAt(j);
 
-                    Assert.assertEquals(subPath, ZookeeperPanel.getZookeeperNodePath(node));
+                    Assert.assertEquals(subPath, ZooDirectorNavPanel.getZookeeperNodePath(node));
 
                     if (i == segments.length) {
                         // The path exists!
@@ -84,18 +86,18 @@ public class ZookeeperPanelTest {
 
     @Test
     public void testAddNodeToTree() {
-        ZookeeperPanel zookeeperPanel = new ZookeeperPanel("localhost", 1000);
+        ZooDirectorNavPanel zooDirectorNavPanel = new ZooDirectorNavPanel(new ZookeeperPanel("localhost", 1000));
 
         String path1 = "/test/all/path/segments/are/added/to/tree";
         String path2 = path1 + "/but/only/once";
 
-        zookeeperPanel.addNodeToTree(path1, true);
-        zookeeperPanel.addNodeToTree(path2, false);
+        zooDirectorNavPanel.addNodeToTree(path1, true);
+        zooDirectorNavPanel.addNodeToTree(path2, false);
 
-        DefaultMutableTreeNode root = zookeeperPanel.rootNode;
+        DefaultMutableTreeNode root = zooDirectorNavPanel.rootNode;
 
         testPathExists(root, path1);
-        Assert.assertEquals(path1, ZookeeperPanel.getZookeeperNodePath((DefaultMutableTreeNode) zookeeperPanel.tree.getSelectionPath().getLastPathComponent()));
+        Assert.assertEquals(path1, ZooDirectorNavPanel.getZookeeperNodePath((DefaultMutableTreeNode) zooDirectorNavPanel.tree.getSelectionPath().getLastPathComponent()));
 
         testPathExists(root, path2);
         testTreeNodeCount(root, 11);
@@ -103,26 +105,26 @@ public class ZookeeperPanelTest {
 
     @Test
     public void testRemoveNodeFromTree() {
-        ZookeeperPanel zookeeperPanel = new ZookeeperPanel("localhost", 1000);
+        ZooDirectorNavPanel zooDirectorNavPanel = new ZooDirectorNavPanel(new ZookeeperPanel("localhost", 1000));
 
         String base = "/test/delete/removes";
         String path = base + "/all";
 
-        zookeeperPanel.addNodeToTree(path + "/child/segments", false);
+        zooDirectorNavPanel.addNodeToTree(path + "/child/segments", false);
 
-        DefaultMutableTreeNode root = zookeeperPanel.rootNode;
+        DefaultMutableTreeNode root = zooDirectorNavPanel.rootNode;
 
         // Cannot remove root
-        zookeeperPanel.removeNodeFromTree("/");
+        zooDirectorNavPanel.removeNodeFromTree("/");
         testTreeNodeCount(root, 6);
 
         // Removes children
-        zookeeperPanel.removeNodeFromTree(path);
+        zooDirectorNavPanel.removeNodeFromTree(path);
         testPathExists(root, base);
         testTreeNodeCount(root, 3);
 
         // Removes all
-        zookeeperPanel.removeNodeFromTree("/test");
+        zooDirectorNavPanel.removeNodeFromTree("/test");
         testTreeNodeCount(root, 0);
     }
 }

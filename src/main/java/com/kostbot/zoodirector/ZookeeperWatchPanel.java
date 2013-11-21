@@ -10,7 +10,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.swing.*;
-import javax.swing.table.DefaultTableModel;
+import javax.swing.table.*;
 import java.awt.*;
 import java.awt.event.*;
 import java.util.HashSet;
@@ -128,16 +128,6 @@ public class ZookeeperWatchPanel extends JPanel {
         watchTable.setHorizontalScrollEnabled(true);
 
         final JPopupMenu tableMenu = new JPopupMenu();
-
-        JMenuItem goToWatchMenuItem = new JMenuItem("go to ...");
-        goToWatchMenuItem.addActionListener(new ActionListener() {
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                String path = getPath(clickedRow);
-                parent.selectTreeNode(path);
-            }
-        });
-        tableMenu.add(goToWatchMenuItem);
 
         JMenuItem viewEditWatchMenuItem = new JMenuItem("view/edit");
         viewEditWatchMenuItem.addActionListener(new ActionListener() {
