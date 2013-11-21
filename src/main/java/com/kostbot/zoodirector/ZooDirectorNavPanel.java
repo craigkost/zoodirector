@@ -236,8 +236,6 @@ public class ZooDirectorNavPanel extends JPanel {
     protected DefaultMutableTreeNode getNodeFromPath(String path) {
         DefaultMutableTreeNode parent = rootNode;
 
-        path = path.trim();
-
         if (!path.startsWith("/")) {
             return null;
         }
@@ -441,7 +439,7 @@ public class ZooDirectorNavPanel extends JPanel {
         while (value == null || BAD_PATH.matcher(value).find()) {
             value = (String) JOptionPane.showInputDialog(
                     SwingUtilities.getRoot(this),
-                    "Enter name for new node" + (value == null ? "" : "\n" + badPathMessage),
+                    "Enter name or full path for new node" + (value == null ? "" : "\n" + badPathMessage),
                     "Create",
                     JOptionPane.PLAIN_MESSAGE,
                     null,

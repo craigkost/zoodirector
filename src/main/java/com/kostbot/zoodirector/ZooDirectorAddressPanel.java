@@ -1,5 +1,7 @@
 package com.kostbot.zoodirector;
 
+import org.apache.zookeeper.common.PathUtils;
+
 import javax.swing.*;
 import java.awt.*;
 import java.awt.event.*;
@@ -17,12 +19,23 @@ public class ZooDirectorAddressPanel extends JPanel {
         this.add(goToButton, BorderLayout.EAST);
 
         addressField.setToolTipText("Enter the path you wish to go to");
-        addressField.addKeyListener(new KeyAdapter() {
+        addressField.addKeyListener(new KeyListener() {
+
             @Override
-            public void keyPressed(KeyEvent e) {
-                if (e.getKeyCode() == KeyEvent.VK_ENTER) {
+            public void keyTyped(KeyEvent e) {
+                if (isPathValid() && (e.getKeyCode() == KeyEvent.VK_ENTER)) {
                     zooDirectorPanel.viewEditTreeNode(addressField.getText());
                 }
+            }
+
+            @Override
+            public void keyPressed(KeyEvent e) {
+                isPathValid();
+            }
+
+            @Override
+            public void keyReleased(KeyEvent e) {
+                isPathValid();
             }
         });
 
@@ -34,7 +47,19 @@ public class ZooDirectorAddressPanel extends JPanel {
         });
     }
 
+    private boolean isPathValid() {
+        try {
+            PathUtils.validatePath(addressField.getText());
+            addressField.setForeground(Color.black);
+            return true;
+        } catch (IllegalArgumentException e) {
+            addressField.setForeground(Color.red);
+            return false;
+        }
+    }
+
     public void setPath(String path) {
         addressField.setText(path);
+        isPathValid();
     }
 }
