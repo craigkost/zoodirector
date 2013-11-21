@@ -26,7 +26,7 @@ public class ZooDirector extends JFrame {
     private JMenuBar menuBar;
 
     private final ZooDirectorConfig config;
-    private ZookeeperPanel zookeeperPanel;
+    private ZooDirectorPanel zooDirectorPanel;
     private JMenu connectMenu;
 
     private ZooDirector(ZooDirectorConfig config) {
@@ -40,8 +40,8 @@ public class ZooDirector extends JFrame {
         this.addWindowListener(new WindowAdapter() {
             @Override
             public void windowClosed(WindowEvent e) {
-                if (zookeeperPanel != null) {
-                    zookeeperPanel.close();
+                if (zooDirectorPanel != null) {
+                    zooDirectorPanel.close();
                 }
             }
         });
@@ -98,13 +98,13 @@ public class ZooDirector extends JFrame {
      */
     private void connect(String connectionString, int connectionRetryPeriod) {
         getContentPane().removeAll();
-        if (zookeeperPanel != null) {
-            zookeeperPanel.close();
+        if (zooDirectorPanel != null) {
+            zooDirectorPanel.close();
         }
-        zookeeperPanel = new ZookeeperPanel(connectionString, connectionRetryPeriod);
+        zooDirectorPanel = new ZooDirectorPanel(connectionString, connectionRetryPeriod);
         setTitle(TITLE + " (" + connectionString + ")");
-        getContentPane().add(zookeeperPanel);
-        zookeeperPanel.connect();
+        getContentPane().add(zooDirectorPanel);
+        zooDirectorPanel.connect();
     }
 
     private void loadConnectionMenu() {
@@ -176,8 +176,8 @@ public class ZooDirector extends JFrame {
         editSettingsMenuItem.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
-                ZooDirectorConfigEditor configEditor = new ZooDirectorConfigEditor((JFrame) SwingUtilities.getRoot(zookeeperPanel), config, zookeeperPanel == null ? null : zookeeperPanel.getConnectionString());
-                configEditor.setLocationRelativeTo(SwingUtilities.getRoot(zookeeperPanel));
+                ZooDirectorConfigEditor configEditor = new ZooDirectorConfigEditor((JFrame) SwingUtilities.getRoot(zooDirectorPanel), config, zooDirectorPanel == null ? null : zooDirectorPanel.getConnectionString());
+                configEditor.setLocationRelativeTo(SwingUtilities.getRoot(zooDirectorPanel));
                 configEditor.setVisible(true);
 
                 configEditor.addWindowListener(new WindowAdapter() {
@@ -203,7 +203,7 @@ public class ZooDirector extends JFrame {
         aboutMenuItem.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
-                aboutDialog.setLocationRelativeTo(SwingUtilities.getRoot(zookeeperPanel));
+                aboutDialog.setLocationRelativeTo(SwingUtilities.getRoot(zooDirectorPanel));
                 aboutDialog.setVisible(true);
             }
         });

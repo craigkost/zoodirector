@@ -13,8 +13,8 @@ import javax.swing.tree.*;
 import java.awt.*;
 import java.awt.event.*;
 
-public final class ZookeeperPanel extends JPanel {
-    private static final Logger logger = LoggerFactory.getLogger(ZookeeperPanel.class);
+public final class ZooDirectorPanel extends JPanel {
+    private static final Logger logger = LoggerFactory.getLogger(ZooDirectorPanel.class);
 
     private ZookeeperSync zookeeperSync;
     private CuratorFramework client;
@@ -34,8 +34,8 @@ public final class ZookeeperPanel extends JPanel {
     private final ZooDirectorAddressPanel zooDirectorAddressPanel;
 
     private final JTabbedPane tabbedPane;
-    private final ZookeeperNodeEditPanel nodeEditPanel;
-    private final ZookeeperWatchPanel watchPanel;
+    private final ZooDirectorNodeEditPanel nodeEditPanel;
+    private final ZooDirectorWatchPanel watchPanel;
 
     private final SwingWorker<Void, Void> connectionWorker;
 
@@ -58,7 +58,7 @@ public final class ZookeeperPanel extends JPanel {
      * @param connectionString      zookeeper connection string
      * @param connectionRetryPeriod time to sleep between retries
      */
-    public ZookeeperPanel(String connectionString, int connectionRetryPeriod) {
+    public ZooDirectorPanel(String connectionString, int connectionRetryPeriod) {
         this.connectionString = connectionString;
         this.connectionRetryPeriod = connectionRetryPeriod;
 
@@ -77,10 +77,10 @@ public final class ZookeeperPanel extends JPanel {
         zooDirectorNavPanel = new ZooDirectorNavPanel(this);
 
         tabbedPane = new JTabbedPane();
-        nodeEditPanel = new ZookeeperNodeEditPanel();
+        nodeEditPanel = new ZooDirectorNodeEditPanel();
         tabbedPane.add(nodeEditPanel, "View/Edit");
 
-        watchPanel = new ZookeeperWatchPanel(this);
+        watchPanel = new ZooDirectorWatchPanel(this);
         tabbedPane.add(watchPanel, "Watches");
 
         splitPane = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, zooDirectorNavPanel, tabbedPane);
@@ -91,8 +91,8 @@ public final class ZookeeperPanel extends JPanel {
             @Override
             protected Void doInBackground() {
                 client = CuratorFrameworkFactory.newClient(
-                        ZookeeperPanel.this.connectionString,
-                        new RetryOneTime(ZookeeperPanel.this.connectionRetryPeriod)
+                        ZooDirectorPanel.this.connectionString,
+                        new RetryOneTime(ZooDirectorPanel.this.connectionRetryPeriod)
                 );
                 client.getConnectionStateListenable().addListener(new ConnectionStateListener() {
                     @Override
@@ -103,11 +103,11 @@ public final class ZookeeperPanel extends JPanel {
                                 offline = true;
                                 nodeEditPanel.setOffline();
                                 logger.warn("connection to {} has been " + (connectionState == ConnectionState.LOST ? "lost" : "suspended") +
-                                        ". Attempts will be made to reestablish the connection", ZookeeperPanel.this.connectionString);
+                                        ". Attempts will be made to reestablish the connection", ZooDirectorPanel.this.connectionString);
                                 break;
                             case RECONNECTED:
                                 offline = false;
-                                logger.info("connection to {} has been reestablished", ZookeeperPanel.this.connectionString);
+                                logger.info("connection to {} has been reestablished", ZooDirectorPanel.this.connectionString);
                             default:
                                 SwingUtilities.invokeLater(new Runnable() {
                                     @Override
@@ -144,7 +144,7 @@ public final class ZookeeperPanel extends JPanel {
 
                 watchPanel.setZookeeperSync(zookeeperSync);
                 nodeEditPanel.setZookeeperSync(zookeeperSync);
-                logger.info("connecting to cluster {}", ZookeeperPanel.this.connectionString);
+                logger.info("connecting to cluster {}", ZooDirectorPanel.this.connectionString);
                 client.start();
                 return null;
             }

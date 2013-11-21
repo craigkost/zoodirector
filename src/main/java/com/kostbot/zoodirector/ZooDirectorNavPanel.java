@@ -17,7 +17,7 @@ import java.util.regex.Pattern;
 public class ZooDirectorNavPanel extends JPanel {
     private static final Logger logger = LoggerFactory.getLogger(ZooDirectorNavPanel.class);
 
-    private final ZookeeperPanel zookeeperPanel;
+    private final ZooDirectorPanel zooDirectorPanel;
 
     protected final DefaultTreeModel treeModel;
     protected final JTree tree;
@@ -33,10 +33,10 @@ public class ZooDirectorNavPanel extends JPanel {
 
     private final Set<String> createdPaths;
 
-    public ZooDirectorNavPanel(ZookeeperPanel zookeeperPanel) {
+    public ZooDirectorNavPanel(ZooDirectorPanel zooDirectorPanel) {
         super(new BorderLayout());
 
-        this.zookeeperPanel = zookeeperPanel;
+        this.zooDirectorPanel = zooDirectorPanel;
 
         rootNode = new DefaultMutableTreeNode(ZookeeperNode.root);
         treeModel = new DefaultTreeModel(rootNode);
@@ -113,7 +113,7 @@ public class ZooDirectorNavPanel extends JPanel {
         addWatchMenuItem.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
-                ZooDirectorNavPanel.this.zookeeperPanel.addWatch(getZookeeperNodePath(getSelectedNode()));
+                ZooDirectorNavPanel.this.zooDirectorPanel.addWatch(getZookeeperNodePath(getSelectedNode()));
             }
         });
         popupMenu.add(addWatchMenuItem);
@@ -122,7 +122,7 @@ public class ZooDirectorNavPanel extends JPanel {
         removeWatchMenuItem.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
-                ZooDirectorNavPanel.this.zookeeperPanel.removeWatch(getZookeeperNodePath(getSelectedNode()));
+                ZooDirectorNavPanel.this.zooDirectorPanel.removeWatch(getZookeeperNodePath(getSelectedNode()));
             }
         });
         popupMenu.add(removeWatchMenuItem);
@@ -137,14 +137,14 @@ public class ZooDirectorNavPanel extends JPanel {
                 if (SwingUtilities.isRightMouseButton(e)) {
                     DefaultMutableTreeNode selectedNode = getSelectedNode();
 
-                    boolean isOnline = ZooDirectorNavPanel.this.zookeeperPanel.isOnline();
+                    boolean isOnline = ZooDirectorNavPanel.this.zooDirectorPanel.isOnline();
 
                     addNodeMenuItem.setEnabled(isOnline);
                     deleteNodeMenuItem.setEnabled(isOnline && !selectedNode.isRoot());
                     pruneNodeMenuItem.setEnabled(isOnline && !selectedNode.isRoot());
                     trimNodeMenuItem.setEnabled(isOnline && selectedNode.getChildCount() > 0);
 
-                    boolean hasWatch = ZooDirectorNavPanel.this.zookeeperPanel.hasWatch(getZookeeperNodePath(selectedNode));
+                    boolean hasWatch = ZooDirectorNavPanel.this.zooDirectorPanel.hasWatch(getZookeeperNodePath(selectedNode));
                     addWatchMenuItem.setEnabled(isOnline && !hasWatch);
                     removeWatchMenuItem.setEnabled(isOnline && hasWatch);
 
@@ -157,9 +157,9 @@ public class ZooDirectorNavPanel extends JPanel {
         tree.addTreeSelectionListener(new TreeSelectionListener() {
             @Override
             public void valueChanged(TreeSelectionEvent event) {
-                if (ZooDirectorNavPanel.this.zookeeperPanel.isOnline()) {
+                if (ZooDirectorNavPanel.this.zooDirectorPanel.isOnline()) {
                     String path = getZookeeperNodePath(getSelectedNode());
-                    ZooDirectorNavPanel.this.zookeeperPanel.viewEditTreeNode(path);
+                    ZooDirectorNavPanel.this.zooDirectorPanel.viewEditTreeNode(path);
                 }
             }
         });
@@ -367,7 +367,7 @@ public class ZooDirectorNavPanel extends JPanel {
 
         try {
             // TODO run on SwingWorker or use ZK Background
-            zookeeperPanel.getZookeeperSync().prune(path);
+            zooDirectorPanel.getZookeeperSync().prune(path);
         } catch (Exception e) {
             logger.error("prune {} failed [{}]", path, e);
         }
@@ -391,7 +391,7 @@ public class ZooDirectorNavPanel extends JPanel {
 
         try {
             // TODO run on SwingWorker or use ZK Background
-            zookeeperPanel.getZookeeperSync().trim(path);
+            zooDirectorPanel.getZookeeperSync().trim(path);
         } catch (Exception e) {
             logger.error("trim {} failed [{}]", path, e);
         }
@@ -421,7 +421,7 @@ public class ZooDirectorNavPanel extends JPanel {
 
         try {
             // TODO run on SwingWorker or use ZK Background
-            zookeeperPanel.getZookeeperSync().delete(path);
+            zooDirectorPanel.getZookeeperSync().delete(path);
         } catch (Exception e) {
             logger.error("delete {} failed [{}]", path, e);
         }
@@ -467,7 +467,7 @@ public class ZooDirectorNavPanel extends JPanel {
         }
 
         try {
-            if (zookeeperPanel.getZookeeperSync().getStat(path) != null) {
+            if (zooDirectorPanel.getZookeeperSync().getStat(path) != null) {
                 addNodeToTree(path, true);
                 return;
             }
@@ -482,7 +482,7 @@ public class ZooDirectorNavPanel extends JPanel {
 
         try {
             // TODO run on SwingWorker or use ZK Background
-            zookeeperPanel.getZookeeperSync().create(path);
+            zooDirectorPanel.getZookeeperSync().create(path);
         } catch (Exception e) {
             synchronized (createdPaths) {
                 createdPaths.remove(path);
@@ -498,7 +498,7 @@ public class ZooDirectorNavPanel extends JPanel {
      * @param recursive if set watches for all descendant nodes will be created (if they do not already exist)
      */
     private void addWatch(DefaultMutableTreeNode node, boolean recursive) {
-        zookeeperPanel.addWatch(getZookeeperNodePath(node));
+        zooDirectorPanel.addWatch(getZookeeperNodePath(node));
         if (recursive) {
             for (int i = 0; i < node.getChildCount(); ++i) {
                 addWatch((DefaultMutableTreeNode) node.getChildAt(i), true);
@@ -513,7 +513,7 @@ public class ZooDirectorNavPanel extends JPanel {
      * @param recursive if true watches for all descendant nodes will be removed (if they exist)
      */
     private void removeWatch(DefaultMutableTreeNode node, boolean recursive) {
-        zookeeperPanel.removeWatch(getZookeeperNodePath(node));
+        zooDirectorPanel.removeWatch(getZookeeperNodePath(node));
         if (recursive) {
             for (int i = 0; i < node.getChildCount(); ++i) {
                 removeWatch((DefaultMutableTreeNode) node.getChildAt(i), true);

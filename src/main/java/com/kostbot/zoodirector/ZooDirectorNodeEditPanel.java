@@ -14,7 +14,7 @@ import java.awt.event.*;
 /**
  * Panel used for viewing and editing zookeeper nodes.
  */
-public class ZookeeperNodeEditPanel extends JPanel {
+public class ZooDirectorNodeEditPanel extends JPanel {
     private static final String PATH = "Path";
     private static final String PATH_EPHEMERAL = "Path (Ephemeral)";
 
@@ -38,7 +38,7 @@ public class ZookeeperNodeEditPanel extends JPanel {
     private final JButton clearButton;
     private final JButton reloadButton;
 
-    ZookeeperNodeEditPanel() {
+    ZooDirectorNodeEditPanel() {
         super();
 
         undoManager = new UndoManager();
@@ -219,8 +219,8 @@ public class ZookeeperNodeEditPanel extends JPanel {
             executeSwingWorker(new SaveDataWorker(zookeeperSync, path, Integer.parseInt(versionTextField.getText()), dataTextArea.getText().getBytes(), new SaveDataWorker.Callback() {
                 @Override
                 public void onComplete(String path) {
-                    if (ZookeeperNodeEditPanel.this.path != null &&
-                            ZookeeperNodeEditPanel.this.path.equals(path)) {
+                    if (ZooDirectorNodeEditPanel.this.path != null &&
+                            ZooDirectorNodeEditPanel.this.path.equals(path)) {
                         reload();
                     }
                 }
@@ -281,7 +281,7 @@ public class ZookeeperNodeEditPanel extends JPanel {
             public void onComplete(String path, Stat stat, byte[] data) {
                 setData(path, stat, data);
                 if (clearUndoManager) {
-                    ZookeeperNodeEditPanel.this.undoManager.discardAllEdits();
+                    ZooDirectorNodeEditPanel.this.undoManager.discardAllEdits();
                 }
             }
         }));

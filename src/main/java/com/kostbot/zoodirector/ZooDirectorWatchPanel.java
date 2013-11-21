@@ -18,8 +18,8 @@ import java.util.Set;
 import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
 
-public class ZookeeperWatchPanel extends JPanel {
-    private static final Logger logger = LoggerFactory.getLogger(ZookeeperWatchPanel.class);
+public class ZooDirectorWatchPanel extends JPanel {
+    private static final Logger logger = LoggerFactory.getLogger(ZooDirectorWatchPanel.class);
 
     private ZookeeperSync zookeeperSync;
 
@@ -33,7 +33,7 @@ public class ZookeeperWatchPanel extends JPanel {
 
     private int clickedRow = -1;
 
-    public ZookeeperWatchPanel(final ZookeeperPanel parent) {
+    public ZooDirectorWatchPanel(final ZooDirectorPanel parent) {
         watches = new HashSet<String>(10);
 
         setLayout(new BorderLayout());

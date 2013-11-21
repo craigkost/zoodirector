@@ -1,7 +1,5 @@
 package com.kostbot.zoodirector;
 
-import com.kostbot.zoodirector.ZookeeperPanel;
-
 import javax.swing.*;
 import java.awt.*;
 import java.awt.event.*;
@@ -9,7 +7,7 @@ import java.awt.event.*;
 public class ZooDirectorAddressPanel extends JPanel {
     final JTextField addressField;
 
-    public ZooDirectorAddressPanel(final ZookeeperPanel zookeeperPanel) {
+    public ZooDirectorAddressPanel(final ZooDirectorPanel zooDirectorPanel) {
         super(new BorderLayout());
 
         addressField = new JTextField();
@@ -23,7 +21,7 @@ public class ZooDirectorAddressPanel extends JPanel {
             @Override
             public void keyPressed(KeyEvent e) {
                 if (e.getKeyCode() == KeyEvent.VK_ENTER) {
-                    zookeeperPanel.viewEditTreeNode(addressField.getText());
+                    zooDirectorPanel.viewEditTreeNode(addressField.getText());
                 }
             }
         });
@@ -31,7 +29,7 @@ public class ZooDirectorAddressPanel extends JPanel {
         goToButton.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
-                zookeeperPanel.viewEditTreeNode(addressField.getText());
+                zooDirectorPanel.viewEditTreeNode(addressField.getText());
             }
         });
     }

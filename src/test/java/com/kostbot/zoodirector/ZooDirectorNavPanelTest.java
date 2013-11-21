@@ -1,7 +1,5 @@
 package com.kostbot.zoodirector;
 
-import com.kostbot.zoodirector.ZooDirectorNavPanel;
-import com.kostbot.zoodirector.ZookeeperPanel;
 import org.junit.Assert;
 import org.junit.Test;
 
@@ -86,7 +84,7 @@ public class ZooDirectorNavPanelTest {
 
     @Test
     public void testAddNodeToTree() {
-        ZooDirectorNavPanel zooDirectorNavPanel = new ZooDirectorNavPanel(new ZookeeperPanel("localhost", 1000));
+        ZooDirectorNavPanel zooDirectorNavPanel = new ZooDirectorNavPanel(new ZooDirectorPanel("localhost", 1000));
 
         String path1 = "/test/all/path/segments/are/added/to/tree";
         String path2 = path1 + "/but/only/once";
@@ -105,7 +103,7 @@ public class ZooDirectorNavPanelTest {
 
     @Test
     public void testRemoveNodeFromTree() {
-        ZooDirectorNavPanel zooDirectorNavPanel = new ZooDirectorNavPanel(new ZookeeperPanel("localhost", 1000));
+        ZooDirectorNavPanel zooDirectorNavPanel = new ZooDirectorNavPanel(new ZooDirectorPanel("localhost", 1000));
 
         String base = "/test/delete/removes";
         String path = base + "/all";
