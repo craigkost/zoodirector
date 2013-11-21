@@ -7,12 +7,9 @@ import org.apache.zookeeper.data.Stat;
 import org.joda.time.DateTime;
 
 import javax.swing.*;
-import javax.swing.undo.UndoManager;
+import javax.swing.undo.*;
 import java.awt.*;
-import java.awt.event.ActionEvent;
-import java.awt.event.ActionListener;
-import java.awt.event.KeyAdapter;
-import java.awt.event.KeyEvent;
+import java.awt.event.*;
 
 /**
  * Panel used for viewing and editing zookeeper nodes.
@@ -259,13 +256,16 @@ public class ZookeeperNodeEditPanel extends JPanel {
     }
 
     /**
-     * Update the edit panel with values for the given zookeeper path and clears the undo history.
+     * If path is different than current path updates the edit panel with values for the given zookeeper path and clears
+     * the undo history.
      *
      * @param path node path to edit
      * @see #setZookeeperPath(String, boolean)
      */
     public void setZookeeperPath(String path) {
-        setZookeeperPath(path, true);
+        if (this.path == null || !this.path.equals(path)) {
+            setZookeeperPath(path, true);
+        }
     }
 
     /**
