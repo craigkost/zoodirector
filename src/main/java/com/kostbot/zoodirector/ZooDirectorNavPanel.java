@@ -236,12 +236,13 @@ public class ZooDirectorNavPanel extends JPanel {
     protected DefaultMutableTreeNode getNodeFromPath(String path) {
         DefaultMutableTreeNode parent = rootNode;
 
+        if (path == null || path.equals("/")) {
+            return parent;
+        }
+
         if (!path.startsWith("/")) {
             return null;
         }
-
-        if (path.equals("/"))
-            return parent;
 
         String[] segments = path.substring(1).split("/");
 
@@ -365,7 +366,7 @@ public class ZooDirectorNavPanel extends JPanel {
 
         try {
             // TODO run on SwingWorker or use ZK Background
-            zooDirectorPanel.getZookeeperSync().prune(path);
+            selectTreeNode(zooDirectorPanel.getZookeeperSync().prune(path));
         } catch (Exception e) {
             logger.error("prune {} failed [{}]", path, e);
         }
@@ -420,6 +421,7 @@ public class ZooDirectorNavPanel extends JPanel {
         try {
             // TODO run on SwingWorker or use ZK Background
             zooDirectorPanel.getZookeeperSync().delete(path);
+            selectTreeNode((DefaultMutableTreeNode) node.getParent());
         } catch (Exception e) {
             logger.error("delete {} failed [{}]", path, e);
         }
@@ -543,6 +545,11 @@ public class ZooDirectorNavPanel extends JPanel {
         }
     }
 
+    @Override
+    public void grabFocus() {
+        tree.grabFocus();
+    }
+
     public void removeAll() {
         rootNode.removeAllChildren();
         treeModel.reload();
@@ -603,7 +610,9 @@ public class ZooDirectorNavPanel extends JPanel {
         }
     }
 
-    private static final Object[] YES_NO = {"Yes", "No"};
+    private static final String YES = "Yes";
+    private static final String NO = "No";
+    private static final Object[] YES_NO = {YES, NO};
 
     int showYesNoDialog(String title, String message) {
         return JOptionPane.showOptionDialog(
@@ -614,6 +623,6 @@ public class ZooDirectorNavPanel extends JPanel {
                 JOptionPane.QUESTION_MESSAGE,
                 null,
                 YES_NO,
-                JOptionPane.YES_OPTION);
+                NO);
     }
 }

@@ -240,7 +240,7 @@ public class ZooDirectorNodeEditPanel extends JPanel {
      */
     synchronized private void executeSwingWorker(SwingWorker<Void, Void> swingWorker) {
         if (this.swingWorker != null) {
-            this.swingWorker.cancel(true);
+            this.swingWorker.cancel(false);
         }
         this.swingWorker = swingWorker;
         if (swingWorker != null) {

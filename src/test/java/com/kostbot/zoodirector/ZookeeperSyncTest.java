@@ -112,7 +112,7 @@ public class ZookeeperSyncTest extends ZookeeperTestBase {
         zookeeperSync.create(base + "/1");
         zookeeperSync.create(path + "/1/2/3");
 
-        zookeeperSync.prune(path);
+        Assert.assertEquals(base, zookeeperSync.prune(path));
         Assert.assertNotNull(client.checkExists().forPath(base));
         Assert.assertNull(client.checkExists().forPath(path));
     }

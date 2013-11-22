@@ -249,13 +249,13 @@ public class ZookeeperSync {
      * @param path
      * @throws Exception
      */
-    public void prune(String path) throws Exception {
+    public String prune(String path) throws Exception {
         if ("/".equals(path)) {
             throw new IllegalArgumentException("cannot prune root node");
         }
 
         if (client.checkExists().forPath(path) == null) {
-            return;
+            return null;
         }
 
         String parent;
@@ -266,6 +266,8 @@ public class ZookeeperSync {
         }
 
         delete(path);
+
+        return parent;
     }
 
     /**

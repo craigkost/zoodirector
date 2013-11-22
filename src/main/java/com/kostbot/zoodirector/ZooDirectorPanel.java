@@ -22,7 +22,7 @@ public final class ZooDirectorPanel extends JPanel {
     private final String connectionString;
     private final int connectionRetryPeriod;
 
-    private volatile boolean offline; // prevent operations if offline.
+    private volatile boolean online; // prevent operations if offline.
 
     // Main UI
     private final JPanel mainPanel;
@@ -100,15 +100,15 @@ public final class ZooDirectorPanel extends JPanel {
                         switch (connectionState) {
                             case LOST:
                             case SUSPENDED:
-                                offline = true;
+                                online = false;
                                 nodeEditPanel.setOffline();
                                 logger.warn("connection to {} has been " + (connectionState == ConnectionState.LOST ? "lost" : "suspended") +
                                         ". Attempts will be made to reestablish the connection", ZooDirectorPanel.this.connectionString);
                                 break;
                             case RECONNECTED:
-                                offline = false;
                                 logger.info("connection to {} has been reestablished", ZooDirectorPanel.this.connectionString);
                             default:
+                                online = true;
                                 SwingUtilities.invokeLater(new Runnable() {
                                     @Override
                                     public void run() {
@@ -161,7 +161,7 @@ public final class ZooDirectorPanel extends JPanel {
     }
 
     public boolean isOnline() {
-        return !offline;
+        return online;
     }
 
     public boolean hasWatch(String path) {
@@ -192,7 +192,7 @@ public final class ZooDirectorPanel extends JPanel {
      * Load tree from zookeeper and display panel.
      */
     private void load() {
-        if (!offline) {
+        if (online) {
             logger.info("loading zookeeper nodes");
             mainPanel.removeAll();
             zooDirectorNavPanel.removeAll();
