@@ -23,9 +23,7 @@ public class ZooDirectorAddressPanel extends JPanel {
 
             @Override
             public void keyTyped(KeyEvent e) {
-                if (isPathValid() && (e.getKeyCode() == KeyEvent.VK_ENTER)) {
-                    zooDirectorPanel.viewEditTreeNode(addressField.getText());
-                }
+                isPathValid();
             }
 
             @Override
@@ -35,7 +33,9 @@ public class ZooDirectorAddressPanel extends JPanel {
 
             @Override
             public void keyReleased(KeyEvent e) {
-                isPathValid();
+                if (isPathValid() && (e.getKeyCode() == KeyEvent.VK_ENTER)) {
+                    zooDirectorPanel.viewEditTreeNode(addressField.getText());
+                }
             }
         });
 
