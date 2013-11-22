@@ -10,7 +10,7 @@ The node tree is automatically synced at all times to the zookeeper cluster base
 Configuration
 -------------
 
-The zoodirector configuration file by default is located at ```${home}/.zoodirector.xml```. The path of this configuration file can be set via the ```ZOODIRECTOR_CONFIG``` environment variable.
+The zoodirector configuration file by default is located at ```${home}/zoodirector.xml```. The path of this configuration file can be set via the ```ZOODIRECTOR_CONFIG``` environment variable.
 
 All zoodirector settings are saved to this file. It will be created the first time any default settings have been modified through the settings editor.
 
