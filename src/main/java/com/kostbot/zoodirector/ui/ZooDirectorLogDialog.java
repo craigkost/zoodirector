@@ -1,4 +1,4 @@
-package com.kostbot.zoodirector;
+package com.kostbot.zoodirector.ui;
 
 import org.apache.log4j.AppenderSkeleton;
 import org.apache.log4j.Layout;
@@ -26,7 +26,7 @@ public class ZooDirectorLogDialog extends JDialog {
         final JTextArea logTextArea = new JTextArea(25, 100);
         logTextArea.setEditable(false);
         logTextArea.setLineWrap(false);
-        logTextArea.setFont(ZooDirector.FONT_MONOSPACED);
+        logTextArea.setFont(ZooDirectorFrame.FONT_MONOSPACED);
         JScrollPane logScrollPane = new JScrollPane(logTextArea);
 
         this.add(logScrollPane);
@@ -36,7 +36,7 @@ public class ZooDirectorLogDialog extends JDialog {
         final JTextField lastLogTextField = new JTextField();
         lastLogTextField.setEditable(false);
         lastLogTextField.setHorizontalAlignment(JLabel.LEFT);
-        lastLogTextField.setFont(ZooDirector.FONT_MONOSPACED);
+        lastLogTextField.setFont(ZooDirectorFrame.FONT_MONOSPACED);
         lastLogPanel.add(lastLogTextField, BorderLayout.CENTER);
 
         lastLogButton.addActionListener(new ActionListener() {

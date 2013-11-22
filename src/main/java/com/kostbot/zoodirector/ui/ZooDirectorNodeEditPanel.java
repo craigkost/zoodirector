@@ -1,8 +1,9 @@
-package com.kostbot.zoodirector;
+package com.kostbot.zoodirector.ui;
 
 import com.google.common.base.Strings;
-import com.kostbot.zoodirector.workers.LoadDataWorker;
-import com.kostbot.zoodirector.workers.SaveDataWorker;
+import com.kostbot.zoodirector.ui.workers.LoadDataWorker;
+import com.kostbot.zoodirector.ui.workers.SaveDataWorker;
+import com.kostbot.zoodirector.zookeepersync.ZookeeperSync;
 import org.apache.zookeeper.data.Stat;
 import org.joda.time.DateTime;
 
@@ -66,7 +67,7 @@ public class ZooDirectorNodeEditPanel extends JPanel {
         c.insets.bottom = 2;
         pathTextField = new JTextField(50);
         pathTextField.setEditable(false);
-        pathTextField.setFont(ZooDirector.FONT_MONOSPACED);
+        pathTextField.setFont(ZooDirectorFrame.FONT_MONOSPACED);
         this.add(pathTextField, c);
 
         c.gridwidth = 1;
@@ -79,12 +80,12 @@ public class ZooDirectorNodeEditPanel extends JPanel {
         c.insets.top = 0;
         cTimeTextField = new JTextField(50);
         cTimeTextField.setEditable(false);
-        cTimeTextField.setFont(ZooDirector.FONT_MONOSPACED);
+        cTimeTextField.setFont(ZooDirectorFrame.FONT_MONOSPACED);
         this.add(cTimeTextField, c);
 
         mTimeTextField = new JTextField(50);
         mTimeTextField.setEditable(false);
-        mTimeTextField.setFont(ZooDirector.FONT_MONOSPACED);
+        mTimeTextField.setFont(ZooDirectorFrame.FONT_MONOSPACED);
         this.add(mTimeTextField, c);
 
         c.gridwidth = 2;
@@ -97,7 +98,7 @@ public class ZooDirectorNodeEditPanel extends JPanel {
         versionTextField = new JTextField(50);
         versionTextField.setEditable(false);
         versionTextField.setToolTipText("modification count");
-        versionTextField.setFont(ZooDirector.FONT_MONOSPACED);
+        versionTextField.setFont(ZooDirectorFrame.FONT_MONOSPACED);
         this.add(versionTextField, c);
 
         c.gridy += 1;
@@ -112,7 +113,7 @@ public class ZooDirectorNodeEditPanel extends JPanel {
         c.fill = GridBagConstraints.BOTH;
         c.insets.top = 0;
         dataTextArea = new JTextArea(10, 50);
-        dataTextArea.setFont(ZooDirector.FONT_MONOSPACED);
+        dataTextArea.setFont(ZooDirectorFrame.FONT_MONOSPACED);
         dataTextArea.addKeyListener(new KeyAdapter() {
             @Override
             public void keyReleased(KeyEvent e) {
@@ -323,8 +324,8 @@ public class ZooDirectorNodeEditPanel extends JPanel {
             pathTextField.setText(path);
 
             versionTextField.setText(Integer.toString(stat.getVersion()));
-            cTimeTextField.setText(new DateTime(stat.getCtime()).toString(ZooDirector.DATE_FORMAT));
-            mTimeTextField.setText(new DateTime(stat.getMtime()).toString(ZooDirector.DATE_FORMAT));
+            cTimeTextField.setText(new DateTime(stat.getCtime()).toString(ZooDirectorFrame.DATE_FORMAT));
+            mTimeTextField.setText(new DateTime(stat.getMtime()).toString(ZooDirectorFrame.DATE_FORMAT));
 
             initData = data == null ? "" : new String(data);
             dataTextArea.setText(initData);

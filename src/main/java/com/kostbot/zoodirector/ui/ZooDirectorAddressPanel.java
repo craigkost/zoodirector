@@ -1,4 +1,4 @@
-package com.kostbot.zoodirector;
+package com.kostbot.zoodirector.ui;
 
 import org.apache.zookeeper.common.PathUtils;
 

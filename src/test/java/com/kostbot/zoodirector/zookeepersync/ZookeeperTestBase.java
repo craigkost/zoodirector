@@ -1,4 +1,4 @@
-package com.kostbot.zoodirector;
+package com.kostbot.zoodirector.zookeepersync;
 
 import com.netflix.curator.framework.CuratorFramework;
 import com.netflix.curator.framework.CuratorFrameworkFactory;

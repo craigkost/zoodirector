@@ -1,4 +1,4 @@
-package com.kostbot.zoodirector;
+package com.kostbot.zoodirector.zookeepersync;
 
 import com.netflix.curator.framework.CuratorFramework;
 import com.netflix.curator.framework.api.CuratorWatcher;
@@ -99,7 +99,7 @@ public class ZookeeperSync {
 
     private final CuratorFramework client;
 
-    ZookeeperSync(CuratorFramework client) {
+    public ZookeeperSync(CuratorFramework client) {
         this.client = client;
 
         watcher = new NodeWatcher(this);

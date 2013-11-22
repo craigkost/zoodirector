@@ -1,5 +1,6 @@
-package com.kostbot.zoodirector;
+package com.kostbot.zoodirector.ui;
 
+import com.kostbot.zoodirector.zookeepersync.ZookeeperSync;
 import com.netflix.curator.framework.CuratorFramework;
 import com.netflix.curator.framework.CuratorFrameworkFactory;
 import com.netflix.curator.framework.state.ConnectionState;

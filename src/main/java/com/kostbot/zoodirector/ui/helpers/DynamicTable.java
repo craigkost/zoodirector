@@ -1,4 +1,4 @@
-package com.kostbot.zoodirector.helpers;
+package com.kostbot.zoodirector.ui.helpers;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

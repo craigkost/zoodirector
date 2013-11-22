@@ -1,4 +1,4 @@
-package com.kostbot.zoodirector;
+package com.kostbot.zoodirector.config;
 
 import org.apache.commons.lang.RandomStringUtils;
 import org.junit.Assert;

@@ -1,7 +1,8 @@
-package com.kostbot.zoodirector;
+package com.kostbot.zoodirector.ui;
 
 import com.google.common.base.Strings;
-import com.kostbot.zoodirector.helpers.DynamicTable;
+import com.kostbot.zoodirector.config.ZooDirectorConfig;
+import com.kostbot.zoodirector.ui.helpers.DynamicTable;
 import org.jdesktop.swingx.JXTable;
 
 import javax.swing.*;

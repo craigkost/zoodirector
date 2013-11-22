@@ -1,8 +1,9 @@
-package com.kostbot.zoodirector;
+package com.kostbot.zoodirector.ui;
 
 import com.google.common.base.Strings;
-import com.kostbot.zoodirector.helpers.DynamicTable;
-import com.kostbot.zoodirector.workers.LoadDataWorker;
+import com.kostbot.zoodirector.ui.helpers.DynamicTable;
+import com.kostbot.zoodirector.ui.workers.LoadDataWorker;
+import com.kostbot.zoodirector.zookeepersync.ZookeeperSync;
 import org.apache.zookeeper.data.Stat;
 import org.jdesktop.swingx.JXTable;
 import org.joda.time.LocalDateTime;
@@ -85,7 +86,7 @@ public class ZooDirectorWatchPanel extends JPanel {
                 return false;
             }
         };
-        patternWatchTable.setFont(ZooDirector.FONT_MONOSPACED);
+        patternWatchTable.setFont(ZooDirectorFrame.FONT_MONOSPACED);
         patternWatchTable.setHorizontalScrollEnabled(true);
 
         final JPopupMenu watchPatternTableMenu = new JPopupMenu();
@@ -124,7 +125,7 @@ public class ZooDirectorWatchPanel extends JPanel {
                 return false;
             }
         };
-        watchTable.setFont(ZooDirector.FONT_MONOSPACED);
+        watchTable.setFont(ZooDirectorFrame.FONT_MONOSPACED);
         watchTable.setHorizontalScrollEnabled(true);
 
         final JPopupMenu tableMenu = new JPopupMenu();

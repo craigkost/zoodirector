@@ -1,6 +1,6 @@
-package com.kostbot.zoodirector.workers;
+package com.kostbot.zoodirector.ui.workers;
 
-import com.kostbot.zoodirector.ZookeeperSync;
+import com.kostbot.zoodirector.zookeepersync.ZookeeperSync;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

@@ -1,4 +1,4 @@
-package com.kostbot.zoodirector;
+package com.kostbot.zoodirector.ui;
 
 import org.junit.Assert;
 import org.junit.Test;
