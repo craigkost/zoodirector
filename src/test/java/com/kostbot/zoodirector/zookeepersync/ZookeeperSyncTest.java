@@ -25,6 +25,58 @@ public class ZookeeperSyncTest extends ZookeeperTestBase {
     }
 
     @Test
+    public void testIsValidPath() {
+        String[] validPaths = {
+                "/",
+                "/valid",
+                "/valid/path",
+        };
+
+        for (String validPath : validPaths) {
+            Assert.assertTrue(validPath + " should be valid", ZookeeperSync.isValidPath(validPath, false));
+            Assert.assertTrue(validPath + " should be valid", ZookeeperSync.isValidPath(validPath));
+        }
+
+        String[] inValidPaths = {
+                "",
+                "valid/",
+                "/valid/path/",
+        };
+
+        for (String validPath : inValidPaths) {
+            Assert.assertFalse(validPath + " should not be valid", ZookeeperSync.isValidPath(validPath, false));
+            Assert.assertFalse(validPath + " should not be valid", ZookeeperSync.isValidPath(validPath));
+        }
+    }
+
+    @Test
+    public void testIsValidSubPath() {
+        String[] validPaths = {
+                "/",
+                "/valid",
+                "valid",
+                "/valid/path",
+                "valid/path",
+        };
+
+        for (String validPath : validPaths) {
+            Assert.assertTrue(validPath + " should be valid", ZookeeperSync.isValidPath(validPath, true));
+            Assert.assertTrue(validPath + " should be valid", ZookeeperSync.isValidSubPath(validPath));
+        }
+
+        String[] inValidPaths = {
+                "",
+                "valid/",
+                "/valid/path/",
+        };
+
+        for (String validPath : inValidPaths) {
+            Assert.assertFalse(validPath + " should not be valid", ZookeeperSync.isValidPath(validPath, true));
+            Assert.assertFalse(validPath + " should not be valid", ZookeeperSync.isValidSubPath(validPath));
+        }
+    }
+
+    @Test
     public void testCreate() throws Exception {
         ZookeeperSync zookeeperSync = new ZookeeperSync(client);
 

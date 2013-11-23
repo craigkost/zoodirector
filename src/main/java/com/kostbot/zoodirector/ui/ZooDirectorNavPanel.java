@@ -1,6 +1,7 @@
 package com.kostbot.zoodirector.ui;
 
-import com.google.common.base.Strings;
+import com.kostbot.zoodirector.ui.helpers.UIUtils;
+import com.kostbot.zoodirector.zookeepersync.ZookeeperSync;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -12,7 +13,6 @@ import java.awt.event.*;
 import java.util.Enumeration;
 import java.util.HashSet;
 import java.util.Set;
-import java.util.regex.Pattern;
 
 public class ZooDirectorNavPanel extends JPanel {
     private static final Logger logger = LoggerFactory.getLogger(ZooDirectorNavPanel.class);
@@ -433,37 +433,40 @@ public class ZooDirectorNavPanel extends JPanel {
      * @param parent parent node to add child to
      */
     private void createNode(DefaultMutableTreeNode parent) {
-        final Pattern BAD_PATH = Pattern.compile("(.*/\\s*/.*|/$)");
-        final String badPathMessage = "Bad path. Cannot end with / or contain and empty or whitespace segments";
 
-        String value = null;
+        JTextField pathTextField = new JTextField();
+        UIUtils.highlightInvalidZookeeperPath(pathTextField, true);
 
-        while (value == null || BAD_PATH.matcher(value).find()) {
-            value = (String) JOptionPane.showInputDialog(
+        JPanel inputPanel = new JPanel(new BorderLayout());
+
+        JLabel messageLabel = new JLabel("Enter name or full path for new node");
+        inputPanel.add(messageLabel, BorderLayout.NORTH);
+
+        inputPanel.add(pathTextField, BorderLayout.CENTER);
+
+        boolean isValid = false;
+        String path = null;
+
+        while (!isValid) {
+            int result = JOptionPane.showConfirmDialog(
                     SwingUtilities.getRoot(this),
-                    "Enter name or full path for new node" + (value == null ? "" : "\n" + badPathMessage),
+                    inputPanel,
                     "Create",
-                    JOptionPane.PLAIN_MESSAGE,
-                    null,
-                    null,
-                    value);
+                    JOptionPane.OK_CANCEL_OPTION,
+                    JOptionPane.PLAIN_MESSAGE);
 
-            if (Strings.isNullOrEmpty(value))
+            if (result != JOptionPane.OK_OPTION) {
                 return;
-
-            if (BAD_PATH.matcher(value).find()) {
-                logger.error("create {} failed [{}]", value, badPathMessage);
             }
+
+            path = pathTextField.getText();
+            isValid = ZookeeperSync.isValidSubPath(path);
         }
 
-        String path;
-
         // Either add as child or as absolute path
-        if (value.startsWith("/")) {
-            path = value;
-        } else {
+        if (!path.startsWith("/")) {
             String parentPath = getZookeeperNodePath(parent);
-            path = ("/".equals(parentPath) ? "/" : (parentPath + "/")) + value;
+            path = ("/".equals(parentPath) ? "/" : (parentPath + "/")) + path;
         }
 
         try {

@@ -4,6 +4,7 @@ import com.netflix.curator.framework.CuratorFramework;
 import com.netflix.curator.framework.api.CuratorWatcher;
 import org.apache.zookeeper.KeeperException;
 import org.apache.zookeeper.WatchedEvent;
+import org.apache.zookeeper.common.PathUtils;
 import org.apache.zookeeper.data.Stat;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -57,6 +58,26 @@ public class ZookeeperSync {
             update,
             delete
         }
+    }
+
+    public static boolean isValidPath(String path, boolean allowSubPaths) {
+        if (allowSubPaths && !path.startsWith("/") && !path.equals("")) {
+            path = "/" + path;
+        }
+        try {
+            PathUtils.validatePath(path);
+            return true;
+        } catch (IllegalArgumentException e) {
+            return false;
+        }
+    }
+
+    public static boolean isValidSubPath(String path) {
+        return isValidPath(path, true);
+    }
+
+    public static boolean isValidPath(String path) {
+        return isValidPath(path, false);
     }
 
     /**
