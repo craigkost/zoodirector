@@ -16,12 +16,10 @@ public class ZookeeperSyncTest extends ZookeeperTestBase {
 
     @Test
     public void testGetParent() {
-        ZookeeperSync zookeeperSync = new ZookeeperSync(client);
-
-        Assert.assertNull(zookeeperSync.getParent("/"));
-        Assert.assertEquals("/", zookeeperSync.getParent("/c"));
-        Assert.assertEquals("/p", zookeeperSync.getParent("/p/c"));
-        Assert.assertEquals("/g/p", zookeeperSync.getParent("/g/p/c"));
+        Assert.assertNull(ZookeeperSync.getParent("/"));
+        Assert.assertEquals("/", ZookeeperSync.getParent("/c"));
+        Assert.assertEquals("/p", ZookeeperSync.getParent("/p/c"));
+        Assert.assertEquals("/g/p", ZookeeperSync.getParent("/g/p/c"));
     }
 
     @Test

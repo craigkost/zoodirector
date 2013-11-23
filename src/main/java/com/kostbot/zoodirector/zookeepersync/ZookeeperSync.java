@@ -60,6 +60,24 @@ public class ZookeeperSync {
         }
     }
 
+    /**
+     * Get the parent path for the given path. Assumes path is a valid path format.
+     *
+     * @param path
+     * @return parent path, null if path is root "/"
+     */
+    public static String getParent(String path) {
+        if ("/".equals(path)) {
+            return null;
+        }
+
+        int lastSegmentIndex = path.lastIndexOf("/");
+        if (lastSegmentIndex == 0) {
+            return "/";
+        }
+        return path.substring(0, lastSegmentIndex);
+    }
+
     public static boolean isValidPath(String path, boolean allowSubPaths) {
         if (allowSubPaths && !path.startsWith("/") && !path.equals("")) {
             path = "/" + path;
@@ -231,24 +249,6 @@ public class ZookeeperSync {
     }
 
     /**
-     * Get the parent path for the given path. Assumes path is a valid path format.
-     *
-     * @param path
-     * @return parent path, null if path is root "/"
-     */
-    protected String getParent(String path) {
-        if ("/".equals(path)) {
-            return null;
-        }
-
-        int lastSegmentIndex = path.lastIndexOf("/");
-        if (lastSegmentIndex == 0) {
-            return "/";
-        }
-        return path.substring(0, lastSegmentIndex);
-    }
-
-    /**
      * Create the given zookeeper path including all non-existent parent nodes.
      *
      * @param path
@@ -282,7 +282,7 @@ public class ZookeeperSync {
         String parent;
 
         // Determine oldest lonely ancestor.
-        while (!"/".equals(parent = getParent(path)) && client.getChildren().forPath(parent).size() == 1) {
+        while (!"/".equals(parent = ZookeeperSync.getParent(path)) && client.getChildren().forPath(parent).size() == 1) {
             path = parent;
         }
 
