@@ -24,7 +24,7 @@ public class ZooDirectorNavPanel extends JPanel {
     protected final JTree tree;
     protected final DefaultMutableTreeNode rootNode;
 
-    private final JMenuItem addNodeMenuItem;
+    private final JMenuItem createNodeMenuItem;
     private final JMenuItem deleteNodeMenuItem;
     private final JMenuItem trimNodeMenuItem;
     private final JMenuItem pruneNodeMenuItem;
@@ -52,14 +52,14 @@ public class ZooDirectorNavPanel extends JPanel {
 
         final JPopupMenu popupMenu = new JPopupMenu();
 
-        addNodeMenuItem = new JMenuItem("add");
-        addNodeMenuItem.addActionListener(new ActionListener() {
+        createNodeMenuItem = new JMenuItem("create");
+        createNodeMenuItem.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
                 createNode(getSelectedNode());
             }
         });
-        popupMenu.add(addNodeMenuItem);
+        popupMenu.add(createNodeMenuItem);
 
         deleteNodeMenuItem = new JMenuItem("delete");
         deleteNodeMenuItem.addActionListener(new ActionListener() {
@@ -140,7 +140,7 @@ public class ZooDirectorNavPanel extends JPanel {
 
                     boolean isOnline = ZooDirectorNavPanel.this.zooDirectorPanel.isOnline();
 
-                    addNodeMenuItem.setEnabled(isOnline);
+                    createNodeMenuItem.setEnabled(isOnline);
                     deleteNodeMenuItem.setEnabled(isOnline && !selectedNode.isRoot());
                     pruneNodeMenuItem.setEnabled(isOnline && !selectedNode.isRoot());
                     trimNodeMenuItem.setEnabled(isOnline && selectedNode.getChildCount() > 0);
