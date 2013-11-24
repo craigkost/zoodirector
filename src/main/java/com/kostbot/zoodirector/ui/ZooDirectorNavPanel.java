@@ -2,6 +2,7 @@ package com.kostbot.zoodirector.ui;
 
 import com.kostbot.zoodirector.ui.helpers.UIUtils;
 import com.kostbot.zoodirector.zookeepersync.ZookeeperSync;
+import org.apache.zookeeper.CreateMode;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -427,6 +428,8 @@ public class ZooDirectorNavPanel extends JPanel {
         }
     }
 
+    private static final CreateMode[] CREATE_MODES = new CreateMode[]{CreateMode.PERSISTENT, CreateMode.EPHEMERAL};
+
     /**
      * Create a child node in zookeeper and add it to the tree based on user node name input.
      *
@@ -434,15 +437,17 @@ public class ZooDirectorNavPanel extends JPanel {
      */
     private void createNode(DefaultMutableTreeNode parent) {
 
-        JTextField pathTextField = new JTextField();
-        UIUtils.highlightInvalidZookeeperPath(pathTextField, true);
-
         JPanel inputPanel = new JPanel(new BorderLayout());
 
         JLabel messageLabel = new JLabel("Enter name or full path for new node");
         inputPanel.add(messageLabel, BorderLayout.NORTH);
 
+        JTextField pathTextField = new JTextField();
+        UIUtils.highlightInvalidZookeeperPath(pathTextField, true);
         inputPanel.add(pathTextField, BorderLayout.CENTER);
+
+        JComboBox<CreateMode> createModeComboBox = new JComboBox<CreateMode>(CREATE_MODES);
+        inputPanel.add(createModeComboBox, BorderLayout.SOUTH);
 
         boolean isValid = false;
         String path = null;
@@ -467,16 +472,6 @@ public class ZooDirectorNavPanel extends JPanel {
         if (!path.startsWith("/")) {
             String parentPath = getZookeeperNodePath(parent);
             path = ("/".equals(parentPath) ? "/" : (parentPath + "/")) + path;
-        }
-
-        try {
-            if (zooDirectorPanel.getZookeeperSync().getStat(path) != null) {
-                addNodeToTree(path, true);
-                return;
-            }
-        } catch (Exception e) {
-            logger.error("create {} failed [{}]", path, e);
-            return;
         }
 
         synchronized (createdPaths) {

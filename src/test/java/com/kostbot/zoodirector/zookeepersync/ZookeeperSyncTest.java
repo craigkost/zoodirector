@@ -1,5 +1,7 @@
 package com.kostbot.zoodirector.zookeepersync;
 
+import org.apache.zookeeper.CreateMode;
+import org.apache.zookeeper.data.Stat;
 import org.junit.Assert;
 import org.junit.Test;
 
@@ -75,14 +77,79 @@ public class ZookeeperSyncTest extends ZookeeperTestBase {
     }
 
     @Test
-    public void testCreate() throws Exception {
+    public void testCreatePersistent() throws Exception {
         ZookeeperSync zookeeperSync = new ZookeeperSync(client);
 
         String path = "/test/all/parent/paths/are/created";
 
-        zookeeperSync.create(path);
+        Assert.assertTrue("node should be created", zookeeperSync.create(path));
 
-        Assert.assertNotNull("all parent paths should be created", client.checkExists().forPath(path));
+        Stat stat = client.checkExists().forPath(path);
+        Assert.assertNotNull("all parent paths should be created", stat);
+        Assert.assertEquals("node should not have ephemeral owner", 0, stat.getEphemeralOwner());
+
+        Assert.assertFalse("node should not be created", zookeeperSync.create(path));
+    }
+
+    @Test
+    public void testCreatePersistentSequential() throws Exception {
+        ZookeeperSync zookeeperSync = new ZookeeperSync(client);
+
+        String path = "/test/all/parent/paths/are/created";
+
+        Assert.assertTrue(zookeeperSync.create(path, CreateMode.PERSISTENT_SEQUENTIAL));
+        Assert.assertTrue(zookeeperSync.create(path, CreateMode.PERSISTENT_SEQUENTIAL));
+
+        Assert.assertNull("base path should not be created", client.checkExists().forPath(path));
+
+        String[] createdPaths = {
+                path + "0000000000",
+                path + "0000000001",
+        };
+
+        for (String createdPath : createdPaths) {
+            Stat stat = client.checkExists().forPath(createdPath);
+            Assert.assertNotNull("all parent paths should be created", stat);
+            Assert.assertEquals("node should not have ephemeral owner", 0, stat.getEphemeralOwner());
+        }
+    }
+
+    @Test
+    public void testCreateEphemeral() throws Exception {
+        ZookeeperSync zookeeperSync = new ZookeeperSync(client);
+
+        String path = "/test/all/parent/paths/are/created";
+
+        Assert.assertTrue("node should be created", zookeeperSync.create(path, CreateMode.EPHEMERAL));
+
+        Stat stat = client.checkExists().forPath(path);
+        Assert.assertNotNull("all parent paths should be created", stat);
+        Assert.assertNotEquals("node should have ephemeral owner", 0, stat.getEphemeralOwner());
+
+        Assert.assertFalse("node should not be created", zookeeperSync.create(path));
+    }
+
+    @Test
+    public void testCreateEphemeralSequential() throws Exception {
+        ZookeeperSync zookeeperSync = new ZookeeperSync(client);
+
+        String path = "/test/all/parent/paths/are/created";
+
+        Assert.assertTrue(zookeeperSync.create(path, CreateMode.EPHEMERAL_SEQUENTIAL));
+        Assert.assertTrue(zookeeperSync.create(path, CreateMode.EPHEMERAL_SEQUENTIAL));
+
+        Assert.assertNull("base path should not be created", client.checkExists().forPath(path));
+
+        String[] createdPaths = {
+                path + "0000000000",
+                path + "0000000001",
+        };
+
+        for (String createdPath : createdPaths) {
+            Stat stat = client.checkExists().forPath(createdPath);
+            Assert.assertNotNull("all parent paths should be created", stat);
+            Assert.assertNotEquals("node should not have ephemeral owner", 0, stat.getEphemeralOwner());
+        }
     }
 
     @Test

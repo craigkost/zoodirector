@@ -2,6 +2,7 @@ package com.kostbot.zoodirector.zookeepersync;
 
 import com.netflix.curator.framework.CuratorFramework;
 import com.netflix.curator.framework.api.CuratorWatcher;
+import org.apache.zookeeper.CreateMode;
 import org.apache.zookeeper.KeeperException;
 import org.apache.zookeeper.WatchedEvent;
 import org.apache.zookeeper.common.PathUtils;
@@ -252,16 +253,27 @@ public class ZookeeperSync {
      * Create the given zookeeper path including all non-existent parent nodes.
      *
      * @param path
+     * @param createMode
+     * @return true if path was created, false otherwise
+     * @throws Exception
+     */
+    public boolean create(String path, CreateMode createMode) throws Exception {
+        if (client.checkExists().forPath(path) == null) {
+            client.create().creatingParentsIfNeeded().withMode(createMode).forPath(path);
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * Create the given zookeeper path including all non-existent parent nodes.
+     *
+     * @param path
      * @return true if path was created, false otherwise
      * @throws Exception
      */
     public boolean create(String path) throws Exception {
-        if (client.checkExists().forPath(path) == null) {
-            client.create().creatingParentsIfNeeded().forPath(path);
-            return true;
-        }
-
-        return false;
+        return create(path, CreateMode.PERSISTENT);
     }
 
     /**
