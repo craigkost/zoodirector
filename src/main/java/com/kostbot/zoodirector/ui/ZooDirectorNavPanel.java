@@ -480,7 +480,7 @@ public class ZooDirectorNavPanel extends JPanel {
 
         try {
             // TODO run on SwingWorker or use ZK Background
-            zooDirectorPanel.getZookeeperSync().create(path);
+            zooDirectorPanel.getZookeeperSync().create(path, (CreateMode) createModeComboBox.getSelectedItem());
         } catch (Exception e) {
             synchronized (createdPaths) {
                 createdPaths.remove(path);

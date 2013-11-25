@@ -31,6 +31,7 @@ public class ZooDirectorNodeEditPanel extends JPanel {
     private final JTextField cTimeTextField;
     private final JTextField mTimeTextField;
     private final JTextField versionTextField;
+    private final JTextField ephemeralOwnerTextField;
     private final JTextArea dataTextArea;
 
     private final UndoManager undoManager;
@@ -88,11 +89,16 @@ public class ZooDirectorNodeEditPanel extends JPanel {
         mTimeTextField.setFont(ZooDirectorFrame.FONT_MONOSPACED);
         this.add(mTimeTextField, c);
 
-        c.gridwidth = 2;
+        c.gridx = 0;
+        c.gridwidth = 1;
         c.gridy += 1;
         c.insets.top = 5;
         this.add(new JLabel("Version"), c);
 
+        c.gridx += 1;
+        this.add(new JLabel("Owner ID"), c);
+
+        c.gridx = 0;
         c.gridy += 1;
         c.insets.top = 0;
         versionTextField = new JTextField(50);
@@ -101,12 +107,19 @@ public class ZooDirectorNodeEditPanel extends JPanel {
         versionTextField.setFont(ZooDirectorFrame.FONT_MONOSPACED);
         this.add(versionTextField, c);
 
+        c.gridx += 1;
+        ephemeralOwnerTextField = new JTextField(50);
+        ephemeralOwnerTextField.setEditable(false);
+        ephemeralOwnerTextField.setToolTipText("ephemeral owner id (0 if persistent)");
+        ephemeralOwnerTextField.setFont(ZooDirectorFrame.FONT_MONOSPACED);
+        this.add(ephemeralOwnerTextField, c);
+
+        c.gridx = 0;
         c.gridy += 1;
         c.gridwidth = 1;
         c.insets.top = 5;
         this.add(new JLabel("Data"), c);
 
-        c.gridx = 0;
         c.gridy += 1;
         c.gridwidth = 2;
         c.weighty = 1;
@@ -300,6 +313,7 @@ public class ZooDirectorNodeEditPanel extends JPanel {
     private void setData(String path, Stat stat, byte[] data) {
         if (stat == null) {
             versionTextField.setText("");
+            ephemeralOwnerTextField.setText("");
             cTimeTextField.setText("");
             mTimeTextField.setText("");
             pathTextField.setText("");
@@ -324,6 +338,7 @@ public class ZooDirectorNodeEditPanel extends JPanel {
             pathTextField.setText(path);
 
             versionTextField.setText(Integer.toString(stat.getVersion()));
+            ephemeralOwnerTextField.setText(Long.toString(stat.getEphemeralOwner()));
             cTimeTextField.setText(new DateTime(stat.getCtime()).toString(ZooDirectorFrame.DATE_FORMAT));
             mTimeTextField.setText(new DateTime(stat.getMtime()).toString(ZooDirectorFrame.DATE_FORMAT));
 
