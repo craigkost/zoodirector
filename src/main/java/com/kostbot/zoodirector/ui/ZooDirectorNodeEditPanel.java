@@ -40,92 +40,74 @@ public class ZooDirectorNodeEditPanel extends JPanel {
     private final JButton clearButton;
     private final JButton reloadButton;
 
+    class GridBagPanelBuilder {
+        JPanel panel;
+        GridBagConstraints c;
+
+        GridBagPanelBuilder(JPanel panel) {
+            this.panel = panel;
+            panel.setLayout(new GridBagLayout());
+            c = new GridBagConstraints();
+            c.anchor = GridBagConstraints.FIRST_LINE_START;
+            c.fill = GridBagConstraints.HORIZONTAL;
+            c.weightx = 0.5;
+            c.weighty = 0;
+            c.gridx = 0;
+            c.gridy = 0;
+            c.insets = new Insets(2, 5, 0, 5);
+        }
+
+        void setWeightY(double weighty) {
+            c.weighty = weighty;
+        }
+
+        void setFill(int fill) {
+            c.fill = fill;
+        }
+
+        void addComponents(int width, JComponent... components) {
+            c.gridwidth = width;
+            for (JComponent component : components) {
+                panel.add(component, c);
+                c.gridx += 1;
+            }
+            c.gridx = 0;
+            c.gridy += 1;
+        }
+    }
+
+    JTextField createNoEditTextField(String tooltip) {
+        JTextField textField = new JTextField(50);
+        textField.setEditable(false);
+        textField.setFont(ZooDirectorFrame.FONT_MONOSPACED);
+        textField.setToolTipText(tooltip);
+        return textField;
+    }
+
     ZooDirectorNodeEditPanel() {
         super();
 
-        undoManager = new UndoManager();
-
-        this.setLayout(new GridBagLayout());
-
-        GridBagConstraints c = new GridBagConstraints();
-
-        c.anchor = GridBagConstraints.FIRST_LINE_START;
-        c.weightx = 0.5;
-        c.insets.top = 5;
-        c.insets.left = 5;
-        c.insets.right = 5;
-        c.insets.bottom = 2;
-
-        c.gridy = 0;
-        c.gridwidth = 2;
-        c.fill = GridBagConstraints.HORIZONTAL;
+        GridBagPanelBuilder gridBagPanelBuilder = new GridBagPanelBuilder(this);
 
         pathLabel = new JLabel(PATH);
-        this.add(pathLabel, c);
+        gridBagPanelBuilder.addComponents(2, pathLabel);
+        pathTextField = createNoEditTextField("Zookeeper Path");
+        gridBagPanelBuilder.addComponents(2, pathTextField);
 
-        c.gridy += 1;
-        c.insets.top = 2;
-        c.insets.bottom = 2;
-        pathTextField = new JTextField(50);
-        pathTextField.setEditable(false);
-        pathTextField.setFont(ZooDirectorFrame.FONT_MONOSPACED);
-        this.add(pathTextField, c);
+        gridBagPanelBuilder.addComponents(1, new JLabel("Created"), new JLabel("Modified"));
+        cTimeTextField = createNoEditTextField("Path Creation Time");
+        mTimeTextField = createNoEditTextField("Path Modification Time");
+        gridBagPanelBuilder.addComponents(1, cTimeTextField, mTimeTextField);
 
-        c.gridwidth = 1;
-        c.gridy += 1;
-        c.insets.top = 5;
-        this.add(new JLabel("Created"), c);
-        this.add(new JLabel("Modified"), c);
+        gridBagPanelBuilder.addComponents(1, new JLabel("Version"), new JLabel("Owner ID"));
+        versionTextField = createNoEditTextField("modification count");
+        ephemeralOwnerTextField = createNoEditTextField("ephemeral owner id (0 if persistent)");
+        gridBagPanelBuilder.addComponents(1, versionTextField, ephemeralOwnerTextField);
 
-        c.gridy += 1;
-        c.insets.top = 0;
-        cTimeTextField = new JTextField(50);
-        cTimeTextField.setEditable(false);
-        cTimeTextField.setFont(ZooDirectorFrame.FONT_MONOSPACED);
-        this.add(cTimeTextField, c);
+        undoManager = new UndoManager();
 
-        mTimeTextField = new JTextField(50);
-        mTimeTextField.setEditable(false);
-        mTimeTextField.setFont(ZooDirectorFrame.FONT_MONOSPACED);
-        this.add(mTimeTextField, c);
-
-        c.gridx = 0;
-        c.gridwidth = 1;
-        c.gridy += 1;
-        c.insets.top = 5;
-        this.add(new JLabel("Version"), c);
-
-        c.gridx += 1;
-        this.add(new JLabel("Owner ID"), c);
-
-        c.gridx = 0;
-        c.gridy += 1;
-        c.insets.top = 0;
-        versionTextField = new JTextField(50);
-        versionTextField.setEditable(false);
-        versionTextField.setToolTipText("modification count");
-        versionTextField.setFont(ZooDirectorFrame.FONT_MONOSPACED);
-        this.add(versionTextField, c);
-
-        c.gridx += 1;
-        ephemeralOwnerTextField = new JTextField(50);
-        ephemeralOwnerTextField.setEditable(false);
-        ephemeralOwnerTextField.setToolTipText("ephemeral owner id (0 if persistent)");
-        ephemeralOwnerTextField.setFont(ZooDirectorFrame.FONT_MONOSPACED);
-        this.add(ephemeralOwnerTextField, c);
-
-        c.gridx = 0;
-        c.gridy += 1;
-        c.gridwidth = 1;
-        c.insets.top = 5;
-        this.add(new JLabel("Data"), c);
-
-        c.gridy += 1;
-        c.gridwidth = 2;
-        c.weighty = 1;
-        c.fill = GridBagConstraints.BOTH;
-        c.insets.top = 0;
         dataTextArea = new JTextArea(10, 50);
+        dataTextArea.getDocument().addUndoableEditListener(undoManager);
         dataTextArea.setFont(ZooDirectorFrame.FONT_MONOSPACED);
         dataTextArea.addKeyListener(new KeyAdapter() {
             @Override
@@ -162,17 +144,15 @@ public class ZooDirectorNodeEditPanel extends JPanel {
                 }
             }
         });
-        dataTextArea.getDocument().addUndoableEditListener(undoManager);
-        this.add(new JScrollPane(dataTextArea), c);
 
-        c.fill = GridBagConstraints.NONE;
-        c.weighty = 0;
-        c.gridy += 1;
-        c.insets.top = 5;
-        c.insets.bottom = 5;
+        gridBagPanelBuilder.addComponents(2, new JLabel("Data"));
+        gridBagPanelBuilder.setWeightY(1.0);
+        gridBagPanelBuilder.setFill(GridBagConstraints.BOTH);
+        gridBagPanelBuilder.addComponents(2, new JScrollPane(dataTextArea));
+
+        gridBagPanelBuilder.setWeightY(0.0);
 
         JPanel buttonPanel = new JPanel(new FlowLayout());
-        this.add(buttonPanel, c);
 
         // Reload
         reloadButton = new JButton("Reload");
@@ -204,7 +184,9 @@ public class ZooDirectorNodeEditPanel extends JPanel {
             }
         });
         buttonPanel.add(saveButton);
-        setZookeeperPath(null, true);
+
+        gridBagPanelBuilder.setFill(GridBagConstraints.NONE);
+        gridBagPanelBuilder.addComponents(2, buttonPanel);
     }
 
     /**
