@@ -1,36 +1,45 @@
 package com.kostbot.zoodirector.ui.helpers;
 
-import com.kostbot.zoodirector.zookeepersync.ZookeeperSync;
-
-import javax.swing.*;
-import javax.swing.event.*;
+import javax.swing.event.DocumentEvent;
+import javax.swing.event.DocumentListener;
+import javax.swing.text.JTextComponent;
 import java.awt.*;
 
 public class UIUtils {
-    public static void highlightInvalidZookeeperPath(final JTextField textField, final boolean allowSubPaths) {
-        textField.getDocument().addDocumentListener(new DocumentListener() {
-            private void highlightText() {
-                if (ZookeeperSync.isValidPath(textField.getText(), allowSubPaths)) {
-                    textField.setForeground(Color.BLACK);
-                } else {
-                    textField.setForeground(Color.RED);
-                }
-            }
+    static final Color COLOR_CONDITION_NOT_MET = Color.RED;
+    static final Color COLOR_CONDITION_MET = Color.BLACK;
 
+    public static interface Condition {
+        boolean isMet();
+    }
+
+    public static void highlightIfConditionMet(final JTextComponent textField, Condition condition) {
+        if (condition.isMet()) {
+            textField.setForeground(COLOR_CONDITION_MET);
+        } else {
+            textField.setForeground(COLOR_CONDITION_NOT_MET);
+        }
+    }
+
+    public static void highlightIfConditionMetOnUpdate(final JTextComponent textField, final Condition condition) {
+
+        textField.getDocument().addDocumentListener(new DocumentListener() {
             @Override
             public void insertUpdate(DocumentEvent e) {
-                highlightText();
+                highlightIfConditionMet(textField, condition);
             }
 
             @Override
             public void removeUpdate(DocumentEvent e) {
-                highlightText();
+                highlightIfConditionMet(textField, condition);
             }
 
             @Override
             public void changedUpdate(DocumentEvent e) {
-                highlightText();
+                highlightIfConditionMet(textField, condition);
             }
         });
+
+        highlightIfConditionMet(textField, condition);
     }
 }

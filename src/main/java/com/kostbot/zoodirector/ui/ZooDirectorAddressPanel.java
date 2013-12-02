@@ -5,7 +5,10 @@ import com.kostbot.zoodirector.zookeepersync.ZookeeperSync;
 
 import javax.swing.*;
 import java.awt.*;
-import java.awt.event.*;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
+import java.awt.event.KeyAdapter;
+import java.awt.event.KeyEvent;
 
 public class ZooDirectorAddressPanel extends JPanel {
     final JTextField addressField;
@@ -20,7 +23,12 @@ public class ZooDirectorAddressPanel extends JPanel {
         this.add(goToButton, BorderLayout.EAST);
 
         addressField.setToolTipText("Enter the path you wish to go to");
-        UIUtils.highlightInvalidZookeeperPath(addressField, false);
+        UIUtils.highlightIfConditionMetOnUpdate(addressField, new UIUtils.Condition() {
+            @Override
+            public boolean isMet() {
+                return ZookeeperSync.isValidPath(addressField.getText());
+            }
+        });
         addressField.addKeyListener(new KeyAdapter() {
             @Override
             public void keyReleased(KeyEvent e) {

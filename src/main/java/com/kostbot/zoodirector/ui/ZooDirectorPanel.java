@@ -14,7 +14,7 @@ import javax.swing.tree.*;
 import java.awt.*;
 import java.awt.event.*;
 
-public final class ZooDirectorPanel extends JPanel {
+public class ZooDirectorPanel extends JPanel {
     private static final Logger logger = LoggerFactory.getLogger(ZooDirectorPanel.class);
 
     private ZookeeperSync zookeeperSync;

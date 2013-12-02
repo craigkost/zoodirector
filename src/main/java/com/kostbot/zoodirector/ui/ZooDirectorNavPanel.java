@@ -7,8 +7,12 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.swing.*;
-import javax.swing.event.*;
-import javax.swing.tree.*;
+import javax.swing.event.TreeSelectionEvent;
+import javax.swing.event.TreeSelectionListener;
+import javax.swing.tree.DefaultMutableTreeNode;
+import javax.swing.tree.DefaultTreeModel;
+import javax.swing.tree.TreePath;
+import javax.swing.tree.TreeSelectionModel;
 import java.awt.*;
 import java.awt.event.*;
 import java.util.Enumeration;
@@ -442,8 +446,13 @@ public class ZooDirectorNavPanel extends JPanel {
         JLabel messageLabel = new JLabel("Enter name or full path for new node");
         inputPanel.add(messageLabel, BorderLayout.NORTH);
 
-        JTextField pathTextField = new JTextField();
-        UIUtils.highlightInvalidZookeeperPath(pathTextField, true);
+        final JTextField pathTextField = new JTextField();
+        UIUtils.highlightIfConditionMetOnUpdate(pathTextField, new UIUtils.Condition() {
+            @Override
+            public boolean isMet() {
+                return ZookeeperSync.isValidPath(pathTextField.getText(), true);
+            }
+        });
         inputPanel.add(pathTextField, BorderLayout.CENTER);
 
         JComboBox<CreateMode> createModeComboBox = new JComboBox<CreateMode>(CREATE_MODES);
