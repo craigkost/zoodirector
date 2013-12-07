@@ -194,13 +194,13 @@ public class ZooDirectorNavPanel extends JPanel {
                     case KeyEvent.VK_W:
                         // Ctrl + (Shift) + W
                         if (e.isControlDown()) {
-                            addWatch(getSelectedNode(), e.isShiftDown());
+                            addWatch(node, e.isShiftDown());
                         }
                         break;
                     case KeyEvent.VK_R:
                         // Ctrl + (Shift) + R
                         if (e.isControlDown()) {
-                            removeWatch(getSelectedNode(), e.isShiftDown());
+                            removeWatch(node, e.isShiftDown());
                         }
                         break;
                 }
