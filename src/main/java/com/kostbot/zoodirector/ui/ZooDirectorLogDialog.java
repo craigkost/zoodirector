@@ -10,6 +10,8 @@ import java.awt.*;
 import java.awt.event.*;
 
 public class ZooDirectorLogDialog extends JDialog {
+    final JTextArea logTextArea;
+    final JTextField lastLogTextField;
     final JPanel lastLogPanel;
 
     public ZooDirectorLogDialog() {
@@ -23,7 +25,7 @@ public class ZooDirectorLogDialog extends JDialog {
 
         this.add(lastLogPanel, BorderLayout.SOUTH);
 
-        final JTextArea logTextArea = new JTextArea(25, 100);
+        logTextArea = new JTextArea(25, 100);
         logTextArea.setEditable(false);
         logTextArea.setLineWrap(false);
         logTextArea.setFont(ZooDirectorFrame.FONT_MONOSPACED);
@@ -33,7 +35,7 @@ public class ZooDirectorLogDialog extends JDialog {
         this.pack();
         this.setLocationRelativeTo(SwingUtilities.getRoot(this));
 
-        final JTextField lastLogTextField = new JTextField();
+        lastLogTextField = new JTextField();
         lastLogTextField.setEditable(false);
         lastLogTextField.setHorizontalAlignment(JLabel.LEFT);
         lastLogTextField.setFont(ZooDirectorFrame.FONT_MONOSPACED);
@@ -46,7 +48,6 @@ public class ZooDirectorLogDialog extends JDialog {
             }
         });
 
-        // TODO replace with better logging panel
         org.apache.log4j.Logger.getRootLogger().addAppender(new AppenderSkeleton() {
             @Override
             protected void append(LoggingEvent loggingEvent) {
