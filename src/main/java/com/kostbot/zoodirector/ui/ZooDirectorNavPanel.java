@@ -169,15 +169,7 @@ public class ZooDirectorNavPanel extends JPanel {
             }
         });
 
-        tree.addKeyListener(new KeyListener() {
-            @Override
-            public void keyTyped(KeyEvent e) {
-            }
-
-            @Override
-            public void keyPressed(KeyEvent e) {
-            }
-
+        tree.addKeyListener(new KeyAdapter() {
             @Override
             public void keyReleased(KeyEvent e) {
                 DefaultMutableTreeNode node = getSelectedNode();
