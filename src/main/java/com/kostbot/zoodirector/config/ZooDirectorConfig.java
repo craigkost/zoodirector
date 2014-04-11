@@ -100,6 +100,10 @@ public class ZooDirectorConfig {
         setConnectionAliases(aliases);
     }
 
+    private String escapeXmlContentString(String content) {
+        return content.replaceAll(",", "\\\\,");
+    }
+
     /**
      * Clobber the existing connection aliases with the provided set.
      *
@@ -107,9 +111,11 @@ public class ZooDirectorConfig {
      */
     public void setConnectionAliases(Map<String, String> aliases) {
         config.clearTree(CONNECTIONS);
-        for (String name : aliases.keySet()) {
-            config.addProperty(CONNECTIONS + "(-1)." + CONNECTION_NAME, name);
-            config.addProperty(CONNECTIONS + "." + CONNECTION_VALUE, aliases.get(name));
+        for (Map.Entry<String, String> aliasEntry : aliases.entrySet()) {
+            String alias = escapeXmlContentString(aliasEntry.getKey());
+            String connectionString = escapeXmlContentString(aliasEntry.getValue());
+            config.addProperty(CONNECTIONS + "(-1)." + CONNECTION_NAME, alias);
+            config.addProperty(CONNECTIONS + "." + CONNECTION_VALUE, connectionString);
         }
     }
 

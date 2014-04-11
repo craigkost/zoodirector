@@ -73,7 +73,7 @@ public class ZooDirectorConfigTest {
 
         Map<String, String> aliases = new HashMap<String, String>(2);
         aliases.put("alias1", "localhost:2181");
-        aliases.put("alias2", "localhost:2181");
+        aliases.put("localhost:2181,localhost:2182", "localhost:2181,localhost:2182");
 
         zooDirectorConfig.setConnectionAliases(aliases);
 
