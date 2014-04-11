@@ -1,6 +1,7 @@
 package com.kostbot.zoodirector.ui;
 
 import com.google.common.base.Strings;
+import com.kostbot.zoodirector.ui.helpers.UIUtils;
 import com.kostbot.zoodirector.ui.workers.LoadDataWorker;
 import com.kostbot.zoodirector.ui.workers.SaveDataWorker;
 import com.kostbot.zoodirector.zookeepersync.ZookeeperSync;
@@ -33,6 +34,7 @@ public class ZooDirectorNodeEditPanel extends JPanel {
     private final JTextField versionTextField;
     private final JTextField ephemeralOwnerTextField;
     private final JTextArea dataTextArea;
+    private final JLabel dataSizeLabel;
 
     private final UndoManager undoManager;
 
@@ -152,6 +154,8 @@ public class ZooDirectorNodeEditPanel extends JPanel {
 
         gridBagPanelBuilder.setWeightY(0.0);
 
+        JPanel bottomPanel = new JPanel(new BorderLayout());
+
         JPanel buttonPanel = new JPanel(new FlowLayout());
 
         // Reload
@@ -185,8 +189,17 @@ public class ZooDirectorNodeEditPanel extends JPanel {
         });
         buttonPanel.add(saveButton);
 
-        gridBagPanelBuilder.setFill(GridBagConstraints.NONE);
-        gridBagPanelBuilder.addComponents(2, buttonPanel);
+        bottomPanel.add(buttonPanel, BorderLayout.WEST);
+
+        dataSizeLabel = new JLabel("");
+
+        JPanel dataSizePanel = new JPanel();
+        dataSizePanel.add(dataSizeLabel);
+
+        bottomPanel.add(dataSizePanel, BorderLayout.EAST);
+
+        gridBagPanelBuilder.setFill(GridBagConstraints.HORIZONTAL);
+        gridBagPanelBuilder.addComponents(2, bottomPanel);
     }
 
     /**
@@ -196,6 +209,9 @@ public class ZooDirectorNodeEditPanel extends JPanel {
      */
     private boolean isDataUpdated() {
         String currentData = dataTextArea.getText();
+
+        dataSizeLabel.setText(UIUtils.humanReadableByteCount(currentData.getBytes().length));
+
         clearButton.setEnabled(!Strings.isNullOrEmpty(currentData));
         if (initData != null) {
             if (!initData.equals(currentData)) {
@@ -300,6 +316,7 @@ public class ZooDirectorNodeEditPanel extends JPanel {
             mTimeTextField.setText("");
             pathTextField.setText("");
             dataTextArea.setText("");
+            dataSizeLabel.setText("");
 
             initData = null;
 

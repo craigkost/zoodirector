@@ -49,4 +49,13 @@ public class UIUtilsTest {
 
         Mockito.verifyNoMoreInteractions(condition);
     }
+
+    @Test
+    public void testHumanReadableByteCount() {
+        Assert.assertEquals("10 bytes", UIUtils.humanReadableByteCount(10));
+        Assert.assertEquals("1023 bytes", UIUtils.humanReadableByteCount(1023));
+        Assert.assertEquals("1.00 KB", UIUtils.humanReadableByteCount(1024));
+        Assert.assertEquals("512.25 KB", UIUtils.humanReadableByteCount(1024 * 512 + 256));
+        Assert.assertEquals("2.00 MB", UIUtils.humanReadableByteCount(1024 * 1024 * 2));
+    }
 }

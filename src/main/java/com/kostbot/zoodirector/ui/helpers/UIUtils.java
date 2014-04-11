@@ -42,4 +42,16 @@ public class UIUtils {
 
         highlightIfConditionMet(textField, condition);
     }
+
+    private static final int UNIT_SIZE = 1024;
+    private static final String UNIT_PREFIXES = "KMGTPE";
+
+    public static String humanReadableByteCount(int numberOfBytes) {
+        if (numberOfBytes < UNIT_SIZE) {
+            return numberOfBytes + " bytes";
+        }
+        int exp = (int) (Math.log(numberOfBytes) / Math.log(UNIT_SIZE));
+        char unitPrefix = UNIT_PREFIXES.charAt(exp - 1);
+        return String.format("%.2f %sB", numberOfBytes / Math.pow(UNIT_SIZE, exp), unitPrefix);
+    }
 }
