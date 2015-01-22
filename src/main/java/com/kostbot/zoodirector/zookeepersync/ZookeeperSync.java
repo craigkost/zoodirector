@@ -205,6 +205,8 @@ public class ZookeeperSync {
             }
         } catch (KeeperException.NoNodeException e) {
             // node may have been deleted
+        } catch (KeeperException.NoAuthException e) {
+        	logger.error("Ignoring no auth: " + e); // No stack trace.
         }
     }
 
